@@ -1,29 +1,46 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Admin } from './entities/admin.entity';
-import * as bcrypt from 'bcrypt';
-import { AuthService } from '../auth/auth.service';
+import { User } from './entities/user.entity';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class UsersService {
   constructor(
-    @InjectRepository(Admin)
-    private readonly adminRepository: Repository<Admin>,
-    private readonly authService: AuthService, 
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
   ) {}
 
-  async validateAdminCredentials(username: string, password: string): Promise<boolean> {
-    const admin = await this.adminRepository.findOne({ where: { username } });
-    if (!admin) {
-      return false;
+  async findOrCreateUser(address: string): Promise<User> {
+    let user = await this.userRepository.findOne({ where: { address } });
+
+    if (!user) {
+      user = await this.createUser(address);
     }
 
-    return bcrypt.compare(password, admin.password);
+    return user;
   }
 
-  generateJwtForWallet(address: string, role: string): string {
-    const payload = { address, role };
-    return this.authService.generateToken(payload);
+  private async createUser(address: string): Promise<User> {
+    const referralCode = this.generateReferralCode();
+    const newUser = this.userRepository.create({
+      address,
+      referralCode,
+    });
+
+    return this.userRepository.save(newUser);
+  }
+
+  private generateReferralCode(): string {
+    // Generate a short, non-case-sensitive code
+    return uuidv4().replace(/-/g, '').substring(0, 10).toLowerCase();
+  }
+
+  async getUserByAddress(address: string): Promise<User | null> {
+    return this.userRepository.findOne({ where: { address } });
+  }
+
+  async getUserByReferralCode(referralCode: string): Promise<User | null> {
+    return this.userRepository.findOne({ where: { referralCode } });
   }
 }

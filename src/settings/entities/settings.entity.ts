@@ -12,9 +12,18 @@ export class Settings {
   @Column({ type: 'boolean', default: false })
   isBootstrapping: boolean;
 
+  @Column({ type: 'timestamp', nullable: true })
+  bootstrappingStartDate: Date | null;
+
   @Column({ type: 'boolean', default: false })
   isEarlySzn: boolean;
 
+  @Column({ type: 'timestamp', nullable: true })
+  earlySznStartDate: Date | null;
+
   @Column({ type: 'boolean', default: false })
   isMemeSzn: boolean;
+
+  @Column({ type: 'timestamp', nullable: true })
+  memeSznStartDate: Date | null;
 }

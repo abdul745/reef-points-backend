@@ -1,30 +1,38 @@
 // filepath: src/users/users.controller.ts
-import { Controller, Post, Body, UnauthorizedException } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  Param,
+  NotFoundException,
+} from '@nestjs/common';
 import { UsersService } from './users.service';
+import { User } from './entities/user.entity';
 
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post('connect-wallet')
-  async connectWallet(@Body('address') address: string): Promise<{ token: string }> {
-    const token = this.usersService.generateJwtForWallet(address, 'user');
-    return { token };
+  async connect(@Body('address') address: string): Promise<User> {
+    if (!address) {
+      throw new NotFoundException('Address is required');
+    }
+    const user = await this.usersService.findOrCreateUser(
+      address.toLowerCase(),
+    );
+    return user;
   }
 
-  @Post('admin-login')
-  async adminLogin(
-    @Body() body: { username: string; password: string },
-  ): Promise<{ token: string }> {
-    const { username, password } = body;
-
-    const allowed = await this.usersService.validateAdminCredentials(username, password);
-
-    if (allowed) {
-      const token = this.usersService.generateJwtForWallet(username, 'admin'); // Admin role
-      return { token };
-    } else {
-      throw new UnauthorizedException('Invalid admin credentials');
+  @Get(':address')
+  async getUser(@Param('address') address: string): Promise<User> {
+    const user = await this.usersService.getUserByAddress(
+      address.toLowerCase(),
+    );
+    if (!user) {
+      throw new NotFoundException('User not found');
     }
+    return user;
   }
 }

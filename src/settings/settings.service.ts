@@ -20,6 +20,9 @@ export class SettingsService {
         isBootstrapping: false,
         isEarlySzn: false,
         isMemeSzn: false,
+        bootstrappingStartDate: null,
+        earlySznStartDate: null,
+        memeSznStartDate: null,
       });
       await this.settingsRepository.save(settings);
     }
@@ -28,7 +31,107 @@ export class SettingsService {
 
   async updateSettings(updateData: Partial<Settings>): Promise<Settings> {
     const settings = await this.getSettings();
+
+    // Auto-set start dates when campaigns are enabled
+    if (updateData.isBootstrapping && !settings.isBootstrapping) {
+      updateData.bootstrappingStartDate = new Date();
+    }
+    if (updateData.isEarlySzn && !settings.isEarlySzn) {
+      updateData.earlySznStartDate = new Date();
+    }
+    if (updateData.isMemeSzn && !settings.isMemeSzn) {
+      updateData.memeSznStartDate = new Date();
+    }
+
     Object.assign(settings, updateData);
     return await this.settingsRepository.save(settings);
+  }
+
+  /**
+   * Calculate time-based decay multiplier for bootstrapping campaign
+   * Starts at 5x and decays to 1x over 14 days
+   */
+  calculateBootstrappingMultiplier(settings: Settings): number {
+    if (!settings.isBootstrapping || !settings.bootstrappingStartDate) {
+      return 1;
+    }
+
+    const now = new Date();
+    const startDate = new Date(settings.bootstrappingStartDate);
+    const daysElapsed =
+      (now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
+
+    if (daysElapsed >= 14) {
+      return 1; // Fully decayed
+    }
+
+    // Linear decay from 5 to 1 over 14 days
+    const decayRate = (5 - 1) / 14; // 4/14 = 0.286 per day
+    const multiplier = 5 - daysElapsed * decayRate;
+
+    return Math.max(1, multiplier);
+  }
+
+  /**
+   * Calculate time-based decay multiplier for early season campaign
+   * Starts at 5x and decays to 1x over 28 days
+   */
+  calculateEarlySznMultiplier(settings: Settings): number {
+    if (!settings.isEarlySzn || !settings.earlySznStartDate) {
+      return 1;
+    }
+
+    const now = new Date();
+    const startDate = new Date(settings.earlySznStartDate);
+    const daysElapsed =
+      (now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
+
+    if (daysElapsed >= 28) {
+      return 1; // Fully decayed
+    }
+
+    // Linear decay from 5 to 1 over 28 days
+    const decayRate = (5 - 1) / 28; // 4/28 = 0.143 per day
+    const multiplier = 5 - daysElapsed * decayRate;
+
+    return Math.max(1, multiplier);
+  }
+
+  /**
+   * Calculate time-based decay multiplier for meme season campaign
+   * Starts at 5x and decays to 1x over 14 days
+   */
+  calculateMemeSznMultiplier(settings: Settings): number {
+    if (!settings.isMemeSzn || !settings.memeSznStartDate) {
+      return 1;
+    }
+
+    const now = new Date();
+    const startDate = new Date(settings.memeSznStartDate);
+    const daysElapsed =
+      (now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
+
+    if (daysElapsed >= 14) {
+      return 1; // Fully decayed
+    }
+
+    // Linear decay from 5 to 1 over 14 days
+    const decayRate = (5 - 1) / 14; // 4/14 = 0.286 per day
+    const multiplier = 5 - daysElapsed * decayRate;
+
+    return Math.max(1, multiplier);
+  }
+
+  /**
+   * Get combined campaign multiplier with time-based decay
+   */
+  getCombinedCampaignMultiplier(settings: Settings): number {
+    const bootstrappingMultiplier =
+      this.calculateBootstrappingMultiplier(settings);
+    const earlySznMultiplier = this.calculateEarlySznMultiplier(settings);
+    const memeSznMultiplier = this.calculateMemeSznMultiplier(settings);
+
+    // Combine multipliers (multiplicative, not additive)
+    return bootstrappingMultiplier * earlySznMultiplier * memeSznMultiplier;
   }
 }

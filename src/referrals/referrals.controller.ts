@@ -1,24 +1,37 @@
-import { Controller, Post, Body, UseGuards } from '@nestjs/common';
-import { ReferralService } from './referrals.service';
-import { AuthGuard } from 'src/auth/auth.guard';
+import { Controller, Post, Body } from '@nestjs/common';
+import { ReferralsService } from './referrals.service';
 
-@Controller('referral')
-export class ReferralController {
-  constructor(private readonly referralService: ReferralService) {}
+class CreateReferralDto {
+  referralCode: string;
+  address: string;
+}
 
-  @Post('generate')
-  async generateReferralCode(@Body('userAddress') userAddress: string) {
-    const referral = await this.referralService.generateReferralCode(userAddress);
+class UseReferralCodeDto {
+  referralCode: string;
+  userAddress: string;
+}
+
+@Controller('referrals')
+export class ReferralsController {
+  constructor(private readonly referralsService: ReferralsService) {}
+
+  @Post()
+  async createReferral(@Body() createReferralDto: CreateReferralDto) {
+    const { referralCode, address } = createReferralDto;
+    const referral = await this.referralsService.createReferral(
+      referralCode,
+      address.toLowerCase(),
+    );
     return { success: true, referral };
   }
 
-  @Post('use')
-  @UseGuards(AuthGuard)
-  async useReferralCode(
-    @Body() body: { referralCode: string; userAddress: string },
-  ) {
-    const { referralCode, userAddress } = body;
-    const referral = await this.referralService.useReferralCode(referralCode, userAddress);
+  @Post('use-code')
+  async useReferralCode(@Body() useReferralCodeDto: UseReferralCodeDto) {
+    const { referralCode, userAddress } = useReferralCodeDto;
+    const referral = await this.referralsService.createReferral(
+      referralCode,
+      userAddress.toLowerCase(),
+    );
     return { success: true, referral };
   }
 }

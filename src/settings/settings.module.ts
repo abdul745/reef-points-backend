@@ -4,10 +4,10 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Settings } from './entities/settings.entity';
 import { SettingsService } from './settings.service';
 import { SettingsController } from './settings.controller';
-import { AuthModule } from 'src/auth/auth.module';
+import { AdminModule } from '../admin/admin.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Settings]), AuthModule],
+  imports: [TypeOrmModule.forFeature([Settings]), AdminModule],
   providers: [SettingsService],
   controllers: [SettingsController],
   exports: [SettingsService],

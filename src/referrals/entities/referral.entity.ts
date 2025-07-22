@@ -1,19 +1,25 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  ManyToOne,
+  OneToOne,
+  JoinColumn,
+} from 'typeorm';
+import { User } from '../../users/entities/user.entity';
 
-@Entity()
+@Entity('referrals')
 export class Referral {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ unique: true })
-  referralCode: string;
+  @ManyToOne(() => User, (user) => user.referrals)
+  referrer: User;
 
-  @Column()
-  referralGenerator: string; // Address of the user who generated the referral
-
-  @Column({ nullable: true })
-  referralUser: string; // Address of the user who used the referral (optional)
+  @OneToOne(() => User, (user) => user.referredBy)
+  @JoinColumn()
+  referred: User;
 
   @CreateDateColumn()
-  createdAt: Date; // Timestamp when the referral was created
+  createdAt: Date;
 }

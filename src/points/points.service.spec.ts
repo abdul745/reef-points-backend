@@ -86,19 +86,28 @@ describe('updatePoints', () => {
 
   it('should create a new user if user does not exist', async () => {
     pointsRepository.findOne.mockResolvedValue(null);
-    pointsRepository.create.mockReturnValue({ 
-      userAddress: '0x123', 
-      referralPoints: 100,
-      actionPoints: 0,
+
+    // The minimal required fields for UserPoints are: userAddress, points, poolType, currentBalance, lowestBalance, depositDate, poolAddress, date
+    const now = new Date();
+    const mockUser = {
+      userAddress: '0x123',
+      points: 100,
       poolType: 'default',
       currentBalance: 0,
       lowestBalance: 0,
-      depositDate: new Date()
-    });
+      depositDate: now,
+      poolAddress: '0xpool', // mock value
+      date: now,
+    };
 
-    pointsRepository.save.mockResolvedValue({ 
-      userAddress: '0x123', 
-      referralPoints: 100,
+    pointsRepository.create.mockReturnValue(mockUser);
+    pointsRepository.save.mockResolvedValue(mockUser);
+
+    await service.updatePoints('0x123', 100);
+
+    expect(pointsRepository.create).toHaveBeenCalledWith({ userAddress: '0x123', points: 100 });
+    expect(pointsRepository.save).toHaveBeenCalledWith(mockUser);
+  });
       actionPoints: 0,
       poolType: 'default',
       currentBalance: 0,

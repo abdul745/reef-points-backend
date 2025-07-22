@@ -17,8 +17,11 @@ export class UserPoints {
   @PrimaryColumn()
   userAddress: string;
 
-  //   @Column({ type: 'float', default: 0 })
-  //   points: number;
+  @PrimaryColumn()
+  poolAddress: string;
+
+  @PrimaryColumn({ type: 'date' })
+  date: Date;
 
   @Column({ type: 'float', default: 0 })
   actionPoints: number;

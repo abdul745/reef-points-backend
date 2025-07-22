@@ -1,35 +1,53 @@
+import { CacheModule } from '@nestjs/cache-manager';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { PointsModule } from './points/points.module';
-import { UserPoints } from './points/entities/user-points.entity';
-import { ReferralModule } from './referrals/referrals.module';
-import { Referral } from './referrals/entities/referral.entity';
-import { AuthModule } from './auth/auth.module';
-import { UsersModule } from './users/users.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
+import { EventsModule } from './events/events.module';
+import { PointsModule } from './points/points.module';
+import { ReferralsModule } from './referrals/referrals.module';
 import { SettingsModule } from './settings/settings.module';
+import { LiquidityModule } from './liquidity/liquidity.module';
+import { PricesModule } from './prices/prices.module';
+import { UsersModule } from './users/users.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
-    ScheduleModule.forRoot(), 
-    TypeOrmModule.forRoot({
-      type: 'postgres', // Database type
-      host: 'localhost', // Database host
-      port: 5432, // Default PostgreSQL port
-      username: 'macbookpro', // Your PostgreSQL username
-      password: '', // Your PostgreSQL password
-      database: 'reefswap', // Your database name
-      autoLoadEntities: true,
-      entities: [UserPoints, Referral], // Register your entities here
-      synchronize: true, // Automatically sync database schema (disable in production)
+    CacheModule.register({
+      isGlobal: true,
+      ttl: 300, // seconds
     }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
+    ScheduleModule.forRoot(),
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => ({
+        type: 'postgres',
+        host: configService.get<string>('DB_HOST'),
+        port: configService.get<number>('DB_PORT'),
+        username: configService.get<string>('DB_USERNAME'),
+        password: configService.get<string>('DB_PASSWORD'),
+        database: configService.get<string>('DB_NAME'),
+        autoLoadEntities: true,
+        synchronize: true,
+      }),
+      inject: [ConfigService],
+    }),
+    EventsModule,
     PointsModule,
-    ReferralModule,
-    AuthModule, 
-    UsersModule,
+    ReferralsModule,
     SettingsModule,
+    LiquidityModule,
+    PricesModule,
+    UsersModule,
+    AdminModule,
   ],
-  controllers: [],
-  providers: [],
+  controllers: [AppController],
+  providers: [AppService],
 })
 export class AppModule {}

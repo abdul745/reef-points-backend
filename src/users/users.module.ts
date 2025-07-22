@@ -1,14 +1,14 @@
 // filepath: src/users/users.module.ts
 import { Module } from '@nestjs/common';
-import { AuthModule } from '../auth/auth.module';
-import { UsersService } from './users.service';
-import { UsersController } from './users.controller';
-import { Admin } from './entities/admin.entity';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { UsersController } from './users.controller';
+import { UsersService } from './users.service';
+import { User } from './entities/user.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Admin]), AuthModule],
-  providers: [UsersService],
+  imports: [TypeOrmModule.forFeature([User])],
   controllers: [UsersController],
+  providers: [UsersService],
+  exports: [UsersService, TypeOrmModule],
 })
 export class UsersModule {}

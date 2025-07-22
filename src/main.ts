@@ -4,8 +4,17 @@ import * as express from 'express';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // Enable CORS for frontend integration
+  app.enableCors({
+    origin: process.env.FRONTEND_URL || '*', // Allow all origins in development
+    credentials: true,
+  });
+
   app.use(express.json());
-  console.log('Server is running on port:', process.env.PORT ?? 3004);
-  await app.listen(process.env.PORT ?? 3004);
+
+  const port = process.env.PORT || 3004;
+  console.log('Server is running on port:', port);
+  await app.listen(port);
 }
 bootstrap();
