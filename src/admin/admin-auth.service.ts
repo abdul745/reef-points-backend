@@ -1,12 +1,12 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
 import { AdminService } from './admin.service';
+import { AuthService } from '../auth/auth.service';
 
 @Injectable()
 export class AdminAuthService {
   constructor(
     private readonly adminService: AdminService,
-    private readonly jwtService: JwtService,
+    private readonly authService: AuthService,
   ) {}
 
   async login(username: string, password: string) {
@@ -23,23 +23,11 @@ export class AdminAuthService {
     };
 
     return {
-      access_token: this.jwtService.sign(payload),
+      access_token: this.authService.generateAdminToken(payload),
       admin: {
         id: admin.id,
         username: admin.username,
       },
     };
-  }
-
-  generateToken(payload: {
-    sub: number;
-    username: string;
-    role: string;
-  }): string {
-    return this.jwtService.sign(payload);
-  }
-
-  verifyToken(token: string): any {
-    return this.jwtService.verify(token);
   }
 }

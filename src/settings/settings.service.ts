@@ -14,7 +14,6 @@ export class SettingsService {
   async getSettings(): Promise<Settings> {
     let settings = await this.settingsRepository.findOne({ where: { id: 1 } });
     if (!settings) {
-      // Create default settings if none exist
       settings = this.settingsRepository.create({
         totalPools: 0,
         isBootstrapping: false,
@@ -131,7 +130,6 @@ export class SettingsService {
     const earlySznMultiplier = this.calculateEarlySznMultiplier(settings);
     const memeSznMultiplier = this.calculateMemeSznMultiplier(settings);
 
-    // Combine multipliers (multiplicative, not additive)
     return bootstrappingMultiplier * earlySznMultiplier * memeSznMultiplier;
   }
 }

@@ -4,12 +4,12 @@ import {
   ExecutionContext,
   UnauthorizedException,
 } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
+import { AuthService } from '../auth/auth.service';
 
 @Injectable()
 export class AdminAuthGuard implements CanActivate {
-  constructor(private readonly jwtService: JwtService) {}
+  constructor(private readonly authService: AuthService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
@@ -20,14 +20,10 @@ export class AdminAuthGuard implements CanActivate {
     }
 
     try {
-      const payload = await this.jwtService.verifyAsync(token);
-      if (payload.role !== 'admin') {
-        throw new UnauthorizedException('Invalid role');
-      }
-
+      const payload = this.authService.verifyAdminToken(token);
       request['admin'] = payload;
       return true;
-    } catch {
+    } catch (error) {
       throw new UnauthorizedException('Invalid token');
     }
   }

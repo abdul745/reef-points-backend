@@ -22,8 +22,8 @@ export class LiquidityScheduler {
    * Daily job to calculate liquidity points.
    * Runs at 00:01 every day to calculate balances and points for the PREVIOUS day.
    */
-  //       @Cron('0 1 * * *') // At 00:01 every day
-  @Cron('*/2 * * * *') // Every 2 minutes
+@Cron('0 1 * * *') // At 00:01 every day
+//   @Cron('*/2 * * * *') // Every 2 minutes
   async handleDailyLiquidityTasks() {
     if (this.isProcessing) {
       this.logger.warn('Daily liquidity tasks are already running. Skipping.');
@@ -113,7 +113,7 @@ export class LiquidityScheduler {
    * Clean up old liquidity balance records (older than 30 days)
    * Runs daily at 02:00
    */
-  @Cron('0 2 * * *') // At 02:00 every day
+  @Cron('0 3 * * *') // At 03:00 every day
   async cleanupOldLiquidityBalances() {
     try {
       this.logger.log('Starting cleanup of old liquidity balance records...');

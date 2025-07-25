@@ -5,9 +5,10 @@ import { Settings } from './entities/settings.entity';
 import { SettingsService } from './settings.service';
 import { SettingsController } from './settings.controller';
 import { AdminModule } from '../admin/admin.module';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Settings]), AdminModule],
+  imports: [TypeOrmModule.forFeature([Settings]), AdminModule, AuthModule],
   providers: [SettingsService],
   controllers: [SettingsController],
   exports: [SettingsService],

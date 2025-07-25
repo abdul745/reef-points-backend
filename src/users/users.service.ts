@@ -32,8 +32,11 @@ export class UsersService {
   }
 
   private generateReferralCode(): string {
-    // Generate a short, non-case-sensitive code
     return uuidv4().replace(/-/g, '').substring(0, 10).toLowerCase();
+  }
+
+  async getAllUsers(): Promise<User[] | []> {
+    return this.userRepository.find();
   }
 
   async getUserByAddress(address: string): Promise<User | null> {
