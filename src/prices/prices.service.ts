@@ -255,45 +255,4 @@ export class PriceService {
 //       `[calculateTokenPricesFromPools] Final tokenPrices: ${JSON.stringify(tokenPrices)}`,
 //     );
   }
-
-  /**
-   * Main entry point for client usage: fetch all pools and calculate prices
-   */
-  async fetchPoolsAndCalculatePrices(
-    tokenPrices: Record<string, number>,
-  ): Promise<void> {
-    const pools = await this.fetchAllPools();
-    await this.calculateTokenPricesFromPools(pools, tokenPrices);
-  }
-
-  /**
-   * Client usage pattern method - matches the expected API
-   * Usage: calculateTokenPricesWithPools(pools, tokenPrices)
-   */
-  async calculateTokenPricesWithPools(
-    pools: any[],
-    tokenPrices: Record<string, number>,
-  ): Promise<void> {
-    this.logger.debug(
-      `[calculateTokenPricesWithPools] Client method called with ${pools.length} pools`,
-    );
-
-    // First ensure we have REEF price
-    if (!tokenPrices[REEF_ADDRESS]) {
-      const reefPrice = await this.getReefPriceUSD();
-      if (reefPrice) {
-        tokenPrices[REEF_ADDRESS] = reefPrice;
-        this.logger.debug(
-          `[calculateTokenPricesWithPools] Added REEF price: $${reefPrice}`,
-        );
-      }
-    }
-
-    // Calculate other token prices using pool ratios
-    await this.calculateTokenPricesFromPools(pools, tokenPrices);
-
-    this.logger.debug(
-      `[calculateTokenPricesWithPools] Final tokenPrices: ${JSON.stringify(tokenPrices)}`,
-    );
-  }
 }

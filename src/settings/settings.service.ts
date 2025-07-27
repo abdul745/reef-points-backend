@@ -50,12 +50,15 @@ export class SettingsService {
    * Calculate time-based decay multiplier for bootstrapping campaign
    * Starts at 5x and decays to 1x over 14 days
    */
-  calculateBootstrappingMultiplier(settings: Settings): number {
+  calculateBootstrappingMultiplier(
+    settings: Settings,
+    processingDate?: Date,
+  ): number {
     if (!settings.isBootstrapping || !settings.bootstrappingStartDate) {
       return 1;
     }
 
-    const now = new Date();
+    const now = processingDate || new Date();
     const startDate = new Date(settings.bootstrappingStartDate);
     const daysElapsed =
       (now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
@@ -75,12 +78,15 @@ export class SettingsService {
    * Calculate time-based decay multiplier for early season campaign
    * Starts at 5x and decays to 1x over 28 days
    */
-  calculateEarlySznMultiplier(settings: Settings): number {
+  calculateEarlySznMultiplier(
+    settings: Settings,
+    processingDate?: Date,
+  ): number {
     if (!settings.isEarlySzn || !settings.earlySznStartDate) {
       return 1;
     }
 
-    const now = new Date();
+    const now = processingDate || new Date();
     const startDate = new Date(settings.earlySznStartDate);
     const daysElapsed =
       (now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
@@ -100,12 +106,15 @@ export class SettingsService {
    * Calculate time-based decay multiplier for meme season campaign
    * Starts at 5x and decays to 1x over 14 days
    */
-  calculateMemeSznMultiplier(settings: Settings): number {
+  calculateMemeSznMultiplier(
+    settings: Settings,
+    processingDate?: Date,
+  ): number {
     if (!settings.isMemeSzn || !settings.memeSznStartDate) {
       return 1;
     }
 
-    const now = new Date();
+    const now = processingDate || new Date();
     const startDate = new Date(settings.memeSznStartDate);
     const daysElapsed =
       (now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
@@ -124,11 +133,22 @@ export class SettingsService {
   /**
    * Get combined campaign multiplier with time-based decay
    */
-  getCombinedCampaignMultiplier(settings: Settings): number {
-    const bootstrappingMultiplier =
-      this.calculateBootstrappingMultiplier(settings);
-    const earlySznMultiplier = this.calculateEarlySznMultiplier(settings);
-    const memeSznMultiplier = this.calculateMemeSznMultiplier(settings);
+  getCombinedCampaignMultiplier(
+    settings: Settings,
+    processingDate?: Date,
+  ): number {
+    const bootstrappingMultiplier = this.calculateBootstrappingMultiplier(
+      settings,
+      processingDate,
+    );
+    const earlySznMultiplier = this.calculateEarlySznMultiplier(
+      settings,
+      processingDate,
+    );
+    const memeSznMultiplier = this.calculateMemeSznMultiplier(
+      settings,
+      processingDate,
+    );
 
     return bootstrappingMultiplier * earlySznMultiplier * memeSznMultiplier;
   }

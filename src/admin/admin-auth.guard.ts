@@ -33,3 +33,4 @@ export class AdminAuthGuard implements CanActivate {
     return type === 'Bearer' ? token : undefined;
   }
 }
+ 

@@ -22,8 +22,8 @@ export class LiquidityScheduler {
    * Daily job to calculate liquidity points.
    * Runs at 00:01 every day to calculate balances and points for the PREVIOUS day.
    */
-@Cron('0 1 * * *') // At 00:01 every day
-//   @Cron('*/2 * * * *') // Every 2 minutes
+  // @Cron('0 1 * * *') // At 00:01 every day
+  @Cron('*/2 * * * *') // Every 2 minutes
   async handleDailyLiquidityTasks() {
     if (this.isProcessing) {
       this.logger.warn('Daily liquidity tasks are already running. Skipping.');
@@ -41,11 +41,8 @@ export class LiquidityScheduler {
       this.logger.log(
         `[DEBUG] dateToProcess: ${dateToProcess.toISOString()} | ${dateToProcess.toLocaleString()}`,
       );
-      const dateOnly = new Date(
-        dateToProcess.getFullYear(),
-        dateToProcess.getMonth(),
-        dateToProcess.getDate(),
-      );
+      // Create date in local timezone to avoid UTC conversion issues
+      const dateOnly = new Date(dateToProcess.toISOString().split('T')[0]);
       this.logger.log(
         `[DEBUG] dateOnly: ${dateOnly.toISOString()} | ${dateOnly.toLocaleString()} | LocalDate: ${dateOnly.toLocaleDateString()}`,
       );

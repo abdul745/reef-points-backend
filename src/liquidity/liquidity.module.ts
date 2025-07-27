@@ -2,7 +2,6 @@ import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { LiquidityService } from './liquidity.service';
 import { LiquidityScheduler } from './liquidity.scheduler';
-import { LiquidityController } from './liquidity.controller';
 import { LiquidityBalance } from './entities/liquidity-balance.entity';
 import { PoolConfig } from './entities/pool-config.entity';
 import { LiquidityTransaction } from './entities/liquidity-transaction.entity';
@@ -24,7 +23,6 @@ import { UserLiquidity } from './entities/user-liquidity.entity';
     SettingsModule,
   ],
   providers: [LiquidityService, LiquidityScheduler],
-  controllers: [LiquidityController],
   exports: [LiquidityService],
 })
 export class LiquidityModule {}

@@ -74,7 +74,9 @@ export class LiquidityService {
       `[calculateAndSaveDailyBalances] Called for user: ${userAddress}, date: ${date.toLocaleDateString()}`,
     );
     const previousDate = new Date(date);
+    // todo uncomment after testing
     previousDate.setDate(date.getDate() - 1);
+    //     previousDate.setDate(date.getDate());
     this.logger.log(
       `[calculateAndSaveDailyBalances] previousDate: ${previousDate.toLocaleDateString()}`,
     );
@@ -85,21 +87,23 @@ export class LiquidityService {
     endOfDay.setHours(23, 59, 59, 999);
 
     // Get all transactions for the user for the given day
-    const transactions = await this.liquidityTransactionRepository.find({
-      where: {
-        userAddress,
-        date: Between(startOfDay, endOfDay),
-      },
-      order: { date: 'ASC', createdAt: 'ASC' },
-    });
+    const transactions = await this.liquidityTransactionRepository
+      .createQueryBuilder('lt')
+      .where('lt.userAddress = :userAddress', { userAddress })
+      .andWhere('DATE(lt.date) = DATE(:date)', { date })
+      .orderBy('lt.date', 'ASC')
+      .addOrderBy('lt.createdAt', 'ASC')
+      .getMany();
     this.logger.log(
       `[calculateAndSaveDailyBalances] Transactions for ${userAddress} on ${date.toLocaleDateString()}: ${JSON.stringify(transactions)}`,
     );
 
     // Get all pools the user had a balance in yesterday or had a transaction in today
-    const previousBalances = await this.liquidityBalanceRepository.find({
-      where: { userAddress, date: previousDate },
-    });
+    const previousBalances = await this.liquidityBalanceRepository
+      .createQueryBuilder('lb')
+      .where('lb.userAddress = :userAddress', { userAddress })
+      .andWhere('DATE(lb.date) = DATE(:date)', { date: previousDate })
+      .getMany();
     this.logger.log(
       `[calculateAndSaveDailyBalances] Previous balances for ${userAddress} on ${previousDate.toLocaleDateString()}: ${JSON.stringify(previousBalances)}`,
     );
@@ -121,7 +125,6 @@ export class LiquidityService {
       const poolTransactions = transactions.filter(
         (t) => t.poolAddress === poolAddress,
       );
-
 
       let lowestBalance: number | null = null;
       let currentBalance = previousBalance;
@@ -156,12 +159,18 @@ export class LiquidityService {
         let streakStartDate: Date = date;
         if (previousBalance > 1) {
           // Get previous day's streakStartDate
-          const prevDayBalance = await this.liquidityBalanceRepository.findOne({
-            where: { userAddress, poolAddress, date: previousDate },
-          });
+          const prevDayBalance = await this.liquidityBalanceRepository
+            .createQueryBuilder('lb')
+            .where('lb.userAddress = :userAddress', { userAddress })
+            .andWhere('lb.poolAddress = :poolAddress', { poolAddress })
+            .andWhere('DATE(lb.date) = DATE(:date)', { date: previousDate })
+            .getOne();
           if (prevDayBalance && prevDayBalance.streakStartDate) {
             streakStartDate = prevDayBalance.streakStartDate;
           }
+        } else {
+          // If this is the first time user has balance > $1, set streakStartDate to current date
+          streakStartDate = date;
         }
         // Save the calculated lowest and final balances for the day
         const dailyBalance = this.liquidityBalanceRepository.create({
@@ -237,6 +246,7 @@ export class LiquidityService {
 
       // Use streakStartDate for duration multiplier
       const streakStartDate = balance.streakStartDate || balance.date;
+
       const daysHeld = Math.floor(
         (date.getTime() - new Date(streakStartDate).getTime()) /
           (1000 * 60 * 60 * 24),
@@ -304,24 +314,6 @@ export class LiquidityService {
     }
   }
 
-  /**
-   * Calculate liquidity multiplier based on number of pools user is in
-   */
-  private async getLiquidityMultiplier(
-    userAddress: string,
-    date: Date,
-  ): Promise<number> {
-    const userPools = await this.liquidityBalanceRepository
-      .createQueryBuilder('lb')
-      .where('lb.userAddress = :userAddress', { userAddress })
-      .andWhere('lb.date = :date', { date })
-      .andWhere('lb.valueUSD > 0')
-      .getCount();
-
-    // Multiplier ranges from 1 to 4 based on number of pools
-    return Math.min(userPools, 4);
-  }
-
   // Call this on startup or before liquidity calculations
   private async refreshTokenPrices() {
     this.pools = await this.priceService.fetchAllPools();
@@ -337,7 +329,7 @@ export class LiquidityService {
 
   // Call this before calculations, or on a schedule
   private async ensureTokenPricesFresh() {
-// todo: inspect
+    // todo: inspect
     // For now, always refresh before calculations
     await this.refreshTokenPrices();
   }
@@ -351,82 +343,6 @@ export class LiquidityService {
       return null;
     }
     return price;
-  }
-
-  /**
-   * Update user's liquidity balance for a specific pool and date
-   */
-  async updateLiquidityBalance(
-    userAddress: string,
-    poolAddress: string,
-    token0Address: string,
-    token1Address: string,
-    amount0: number,
-    amount1: number,
-    date: Date,
-  ): Promise<void> {
-    try {
-      this.logger.log(
-        `Updating liquidity balance for user ${userAddress} in pool ${poolAddress} on ${date.toISOString().split('T')[0]}`,
-      );
-      await this.ensureTokenPricesFresh();
-      // Get token prices
-      this.logger.debug(
-        `[updateLiquidityBalance] Getting prices for tokens: ${token0Address}, ${token1Address}`,
-      );
-      const token0Price = this.getTokenPriceFromCache(token0Address);
-      const token1Price = this.getTokenPriceFromCache(token1Address);
-      this.logger.debug(
-        `[updateLiquidityBalance] Token prices - ${token0Address}: $${token0Price}, ${token1Address}: $${token1Price}`,
-      );
-      if (token0Price === null || token1Price === null) {
-        this.logger.warn(
-          `Skipping liquidity balance update due to missing price for tokens: ${token0Address}, ${token1Address}`,
-        );
-        return;
-      }
-      // Calculate USD value
-      const valueUSD = amount0 * token0Price + amount1 * token1Price;
-      this.logger.log(
-        `Token prices: ${token0Address}=$${token0Price}, ${token1Address}=$${token1Price}`,
-      );
-      this.logger.log(`Amounts: ${amount0} + ${amount1} = $${valueUSD} USD`);
-      // Find existing balance for this user, pool, and date
-      let balance = await this.liquidityBalanceRepository.findOne({
-        where: {
-          userAddress,
-          poolAddress,
-          date,
-        },
-      });
-
-      if (balance) {
-        // Update existing balance
-        balance.amount0 = amount0;
-        balance.amount1 = amount1;
-        balance.valueUSD = valueUSD;
-        balance.updatedAt = new Date();
-      } else {
-        // Create new balance
-        balance = this.liquidityBalanceRepository.create({
-          userAddress,
-          poolAddress,
-          token0Address,
-          token1Address,
-          amount0,
-          amount1,
-          valueUSD,
-          date,
-        });
-      }
-
-      await this.liquidityBalanceRepository.save(balance);
-      this.logger.log(
-        `Liquidity balance updated: ${userAddress} has $${valueUSD} in pool ${poolAddress}`,
-      );
-    } catch (error) {
-      this.logger.error(`Error updating liquidity balance:`, error);
-    }
   }
 
   /**
@@ -463,52 +379,13 @@ export class LiquidityService {
     return poolConfig;
   }
 
-  /**
-   * Get user's lowest liquidity balance for a specific date
-   */
-  async getLowestBalanceForDate(
-    userAddress: string,
-    date: Date,
-  ): Promise<number> {
-    const balances = await this.liquidityBalanceRepository.find({
-      where: {
-        userAddress,
-        date,
-        valueUSD: MoreThan(1), // Only consider balances above $1
-      },
-    });
-
-    if (balances.length === 0) return 0;
-
-    const totalValue = balances.reduce(
-      (sum, balance) => sum + balance.valueUSD,
-      0,
-    );
-    return totalValue;
-  }
-
-  /**
-   * Get all active pools for a user on a specific date
-   */
-  async getUserActivePools(userAddress: string, date: Date): Promise<string[]> {
-    const balances = await this.liquidityBalanceRepository.find({
-      where: {
-        userAddress,
-        date,
-        valueUSD: MoreThan(1), // Only consider balances above $1
-      },
-    });
-
-    return balances.map((balance) => balance.poolAddress);
-  }
-
   // Method to find all users who need daily balance calculation
   async getUsersForDailyCalculation(date: Date): Promise<string[]> {
     // Get users who had liquidity transactions on the target day
     const transactionUsers = await this.liquidityTransactionRepository
       .createQueryBuilder('lt')
       .select('DISTINCT lt.userAddress', 'userAddress')
-      .where('lt.date = :date', { date })
+      .where('DATE(lt.date) = DATE(:date)', { date })
       .getRawMany();
 
     // Get users who had balances above $1 the previous day
@@ -518,7 +395,7 @@ export class LiquidityService {
     const balanceUsers = await this.liquidityBalanceRepository
       .createQueryBuilder('lb')
       .select('DISTINCT lb.userAddress', 'userAddress')
-      .where('lb.date = :date', { date: previousDate })
+      .where('DATE(lb.date) = DATE(:date)', { date: previousDate })
       .andWhere('lb.valueUSD > 1') // Only consider balances above $1
       .getRawMany();
 
@@ -552,11 +429,11 @@ export class LiquidityService {
       userLiquidity = this.userLiquidityRepository.create({
         userAddress: normalizedUser,
         tokenAddress: normalizedToken,
-        balance: amountChange,
+        balance: amountChange.toString(),
       });
     }
 
-    const currentBalance = BigInt(userLiquidity.balance || 0);
+    const currentBalance = BigInt(userLiquidity.balance || '0');
     this.logger.log(
       `[LiquidityService] BEFORE: ${normalizedUser} in ${normalizedToken} - Current balance: ${currentBalance}, Amount change: ${amountChange}`,
     );
@@ -568,7 +445,7 @@ export class LiquidityService {
       );
       newBalance = 0n;
     }
-    userLiquidity.balance = newBalance;
+    userLiquidity.balance = newBalance.toString();
     await this.userLiquidityRepository.save(userLiquidity);
     this.logger.log(
       `[LiquidityService] AFTER: ${normalizedUser} in ${normalizedToken} - New balance: ${newBalance}`,

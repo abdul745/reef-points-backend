@@ -23,6 +23,8 @@ interface PoolEvent {
   id: string;
   blockHeight: number;
   toAddress: string;
+  senderAddress?: string;
+  signerAddress?: string;
   type: PoolEventType;
   amount1: string;
   amount2: string;
@@ -68,6 +70,12 @@ export class EventsService {
     await this.fetchAndProcessEvents();
   }
 
+  // Test method for historical data processing
+  async testWithHistoricalData() {
+    this.logger.log('Starting historical data test...');
+    await this.fetchAndProcessHistoricalEvents();
+  }
+
   // Call this on startup or before processing events
   private async refreshTokenPrices() {
     this.pools = await this.priceService.fetchAllPools();
@@ -96,6 +104,8 @@ export class EventsService {
           id
           blockHeight
           toAddress
+          senderAddress
+          signerAddress
           type
           amount1
           amount2
@@ -189,6 +199,132 @@ export class EventsService {
     }
   }
 
+  private async fetchAndProcessHistoricalEvents() {
+    await this.ensureTokenPricesFresh();
+
+    // Define historical block range with known liquidity events
+    const startBlock = 12000000; // Start from block 12M
+    const endBlock = 13000000; // End at block 13M
+    const batchSize = 100; // Process in batches
+
+    this.logger.log(
+      `Processing historical events from block ${startBlock} to ${endBlock}`,
+    );
+
+    for (
+      let currentBlock = startBlock;
+      currentBlock <= endBlock;
+      currentBlock += batchSize
+    ) {
+      const batchEndBlock = Math.min(currentBlock + batchSize - 1, endBlock);
+
+      const query = `
+        query {
+          poolEvents(where: { 
+            blockHeight_gte: ${currentBlock}, 
+            blockHeight_lte: ${batchEndBlock}, 
+            type_in: [Swap, Mint, Burn] 
+          }, orderBy: blockHeight_ASC, limit: 50) {
+            id
+            blockHeight
+            toAddress
+            senderAddress
+            signerAddress
+            type
+            amount1
+            amount2
+            pool {
+              token1 { id }
+              token2 { id }
+            }
+          }
+        }
+      `;
+
+      try {
+        const response = await firstValueFrom(
+          this.httpService.post(SQUID_URL, { query }),
+        );
+
+        if (
+          !response.data ||
+          !response.data.data ||
+          !response.data.data.poolEvents
+        ) {
+          this.logger.debug(
+            `No events found in block range ${currentBlock}-${batchEndBlock}`,
+          );
+          continue;
+        }
+
+        const events: PoolEvent[] = response.data.data.poolEvents;
+
+        if (events.length === 0) {
+          this.logger.debug(
+            `No events found in block range ${currentBlock}-${batchEndBlock}`,
+          );
+          continue;
+        }
+
+        this.logger.log(
+          `Found ${events.length} historical events in block range ${currentBlock}-${batchEndBlock}`,
+        );
+
+        for (const event of events) {
+          const isProcessed = await this.isEventProcessed(event.id);
+          if (isProcessed) {
+            this.logger.debug(`Event ${event.id} already processed, skipping`);
+            continue;
+          }
+
+          // Ineligible token filter (centralized)
+          if (
+            isIneligibleToken(event.pool.token1.id) ||
+            isIneligibleToken(event.pool.token2.id)
+          ) {
+            this.logger.warn(
+              `[fetchAndProcessHistoricalEvents] Skipping event ${event.id} due to ineligible token: ${event.pool.token1.id} or ${event.pool.token2.id}`,
+            );
+            await this.markEventAsProcessed(event.id, event.blockHeight);
+            continue;
+          }
+
+          switch (event.type) {
+            case PoolEventType.SWAP:
+              await this.processSwapEvent(event);
+              break;
+            case PoolEventType.MINT:
+              await this.processMintEvent(event);
+              break;
+            case PoolEventType.BURN:
+              await this.processBurnEvent(event);
+              break;
+          }
+          await this.markEventAsProcessed(event.id, event.blockHeight);
+
+          // Add a delay to avoid hitting API rate limits
+          await new Promise((resolve) => setTimeout(resolve, 250));
+        }
+
+        this.logger.log(
+          `Completed processing block range ${currentBlock}-${batchEndBlock}`,
+        );
+
+        // Add delay between batches
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      } catch (error) {
+        this.logger.error(
+          `Failed to fetch or process historical events for block range ${currentBlock}-${batchEndBlock}`,
+          error.stack,
+        );
+        // Continue with next batch even if current fails
+        continue;
+      }
+    }
+
+    this.logger.log('Historical data processing completed!');
+  }
+
   private getPoolAddressFromEvent(event: PoolEvent): string {
     // Use event.pool.id if present, else fallback to token1_token2
     if (event.pool && event.pool.id) {
@@ -264,22 +400,28 @@ export class EventsService {
     this.logger.log(
       '[LIQUIDITY] Received Mint event: ' + JSON.stringify(event, null, 2),
     );
-    if (!event.toAddress) {
+
+    // For mint events, use senderAddress if toAddress is null
+    const userAddress = event.toAddress || event.senderAddress;
+
+    if (!userAddress) {
       this.logger.warn(
-        `[LIQUIDITY] Skipping Mint event with null toAddress: ${event.id}`,
+        `[LIQUIDITY] Skipping Mint event with no user address: ${event.id}`,
       );
       return;
     }
+
     this.logger.log(
-      `[LIQUIDITY] event amount1 for Mint event is ${event.amount1}`,
+      `[LIQUIDITY] Processing Mint event for user: ${userAddress}`,
     );
+
     await this.liquidityService.updateUserLiquidity(
-      event.toAddress,
+      userAddress,
       event.pool.token1.id,
       BigInt(event.amount1),
     );
     await this.liquidityService.updateUserLiquidity(
-      event.toAddress,
+      userAddress,
       event.pool.token2.id,
       BigInt(event.amount2),
     );
@@ -311,13 +453,13 @@ export class EventsService {
       event.pool.token2.id,
     );
     await this.liquidityService.recordTransaction(
-      event.toAddress,
+      userAddress,
       poolAddress,
       TransactionType.MINT,
       safeValueUSD,
       new Date(),
     );
-    this.logger.log(`Processed MINT event for ${event.toAddress}.`);
+    this.logger.log(`Processed MINT event for ${userAddress}.`);
   }
 
   private async processBurnEvent(event: PoolEvent) {

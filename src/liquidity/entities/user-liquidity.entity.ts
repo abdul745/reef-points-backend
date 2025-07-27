@@ -12,6 +12,6 @@ export class UserLiquidity {
   @ManyToOne(() => User)
   user: User;
 
-  @Column('bigint', { default: 0 })
-  balance: bigint;
+  @Column('numeric', { precision: 78, scale: 0, default: 0 })
+  balance: string;
 }

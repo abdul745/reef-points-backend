@@ -139,6 +139,7 @@ export class PointsService {
       }
       // Fetch duration multiplier from streakStartDate
       const streakStartDate = balance.streakStartDate || balance.date;
+
       const daysHeld = Math.floor(
         (date.getTime() - new Date(streakStartDate).getTime()) /
           (1000 * 60 * 60 * 24),
@@ -178,7 +179,7 @@ export class PointsService {
     // Fetch campaign multiplier
     const settings = await this.settingsService.getSettings();
     const campaignMultiplier =
-      this.settingsService.getCombinedCampaignMultiplier(settings);
+      this.settingsService.getCombinedCampaignMultiplier(settings, date);
     multipliedPoints = multipliedPoints * campaignMultiplier;
     console.log(
       `[PointsService] User ${userAddress} total points before multiplier: ${totalPoints}, pool multiplier: ${poolMultiplier}, campaign multiplier: ${campaignMultiplier}, after all multipliers: ${multipliedPoints}`,
@@ -219,9 +220,9 @@ export class PointsService {
   /**
    * Scheduled job to batch-calculate and award swap points for all users and pools at the end of each day
    */
-//   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  //   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   // todo: uncomment
-    @Cron('*/2 * * * *')
+  //   @Cron('*/2 * * * *')
   async calculateAndAwardDailySwapPoints() {
     const dateToProcess = new Date();
     // toDo: Change the date and the scheduler time after testing
