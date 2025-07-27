@@ -18,7 +18,7 @@ import { AdminModule } from './admin/admin.module';
   imports: [
     CacheModule.register({
       isGlobal: true,
-      ttl: 300, // seconds
+      ttl: parseInt(process.env.CACHE_TTL || '300'), // seconds
     }),
     ConfigModule.forRoot({
       isGlobal: true,

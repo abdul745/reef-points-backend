@@ -45,8 +45,11 @@ export class PointsService {
     });
     if (user && user.referredBy && user.referredBy.referrer) {
       const referrer = user.referredBy.referrer;
-      const referrerBonus = points * 0.1;
-      const refereeBonus = points * 0.05;
+      const referrerBonus =
+        points *
+        (parseInt(process.env.REFERRER_BONUS_PERCENTAGE || '10') / 100);
+      const refereeBonus =
+        points * (parseInt(process.env.REFERRAL_BONUS_PERCENTAGE || '5') / 100);
       // Award 10% to referrer
       await this.updateReferralPoints(referrer.address, referrerBonus);
       // Award 5% to referee (the user themselves)
@@ -128,13 +131,15 @@ export class PointsService {
       let multiplier = 1;
       switch (poolConfig.poolType) {
         case PoolType.STABLE_STABLE:
-          multiplier = 1;
+          multiplier = parseInt(process.env.STABLE_STABLE_MULTIPLIER || '1');
           break;
         case PoolType.VOLATILE_VOLATILE:
-          multiplier = 4;
+          multiplier = parseInt(
+            process.env.VOLATILE_VOLATILE_MULTIPLIER || '4',
+          );
           break;
         case PoolType.VOLATILE_STABLE:
-          multiplier = 7;
+          multiplier = parseInt(process.env.VOLATILE_STABLE_MULTIPLIER || '7');
           break;
       }
       // Fetch duration multiplier from streakStartDate
@@ -278,10 +283,11 @@ export class PointsService {
         continue;
       }
 
-      // Calculate points based on fees generated (200 points per $1 fee)
-      const feeRate = 0.001; // 0.1% fee rate
+      // Calculate points based on fees generated
+      const feeRate = parseFloat(process.env.SWAP_FEE_RATE || '0.001'); // 0.1% fee rate
       const feeGenerated = totalUSD * feeRate;
-      const points = feeGenerated * 200; // 200 points per $1 fee
+      const points =
+        feeGenerated * parseInt(process.env.POINTS_PER_DOLLAR_FEE || '200'); // points per $1 fee
 
       // Update user_points for this user/pool/day
       let userPoints = await this.pointsRepository.findOne({

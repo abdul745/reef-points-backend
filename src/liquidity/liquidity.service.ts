@@ -153,11 +153,14 @@ export class LiquidityService {
         `[calculateAndSaveDailyBalances] Final lowestBalance: ${finalLowestBalance}, finalCurrentBalance: ${finalCurrentBalance}`,
       );
 
-      // Only save balances that are above $1 threshold
-      if (finalLowestBalance >= 1) {
+      // Only save balances that are above minimum threshold
+      const minThreshold = parseFloat(
+        process.env.MIN_LIQUIDITY_THRESHOLD || '1',
+      );
+      if (finalLowestBalance >= minThreshold) {
         // Determine streakStartDate
         let streakStartDate: Date = date;
-        if (previousBalance > 1) {
+        if (previousBalance > minThreshold) {
           // Get previous day's streakStartDate
           const prevDayBalance = await this.liquidityBalanceRepository
             .createQueryBuilder('lb')
@@ -169,7 +172,7 @@ export class LiquidityService {
             streakStartDate = prevDayBalance.streakStartDate;
           }
         } else {
-          // If this is the first time user has balance > $1, set streakStartDate to current date
+          // If this is the first time user has balance > threshold, set streakStartDate to current date
           streakStartDate = date;
         }
         // Save the calculated lowest and final balances for the day
@@ -193,7 +196,7 @@ export class LiquidityService {
         );
       } else {
         this.logger.log(
-          `[calculateAndSaveDailyBalances] Skipping balance for ${userAddress} in ${poolAddress}: Lowest=$${finalLowestBalance} (below $1 threshold)`,
+          `[calculateAndSaveDailyBalances] Skipping balance for ${userAddress} in ${poolAddress}: Lowest=$${finalLowestBalance} (below $${minThreshold} threshold)`,
         );
       }
     }
@@ -215,14 +218,15 @@ export class LiquidityService {
     }
 
     // The balances in this table now represent the LOWEST balance for the day
-    // Only consider balances above $1 (minimum threshold)
+    // Only consider balances above minimum threshold
+    const minThreshold = parseFloat(process.env.MIN_LIQUIDITY_THRESHOLD || '1');
     const lowestBalances = await this.liquidityBalanceRepository.find({
-      where: { userAddress, date, valueUSD: MoreThan(1) }, // Changed from MoreThan(0) to MoreThan(1)
+      where: { userAddress, date, valueUSD: MoreThan(minThreshold) },
     });
 
     if (lowestBalances.length === 0) {
       this.logger.log(
-        `[LiquidityPoints] No balances above $1 threshold for user ${userAddress} on ${date.toISOString().split('T')[0]}`,
+        `[LiquidityPoints] No balances above $${minThreshold} threshold for user ${userAddress} on ${date.toISOString().split('T')[0]}`,
       );
       return 0;
     }
@@ -282,11 +286,17 @@ export class LiquidityService {
     const daysHeld = Math.floor(
       (date.getTime() - streakStartDate.getTime()) / (1000 * 60 * 60 * 24),
     );
-    if (daysHeld >= 90) return 5;
-    if (daysHeld >= 60) return 4;
-    if (daysHeld >= 30) return 3;
-    if (daysHeld >= 15) return 2;
-    if (daysHeld >= 7) return 1.5;
+    const day5 = parseInt(process.env.DURATION_MULTIPLIER_5X_DAYS || '90');
+    const day4 = parseInt(process.env.DURATION_MULTIPLIER_4X_DAYS || '60');
+    const day3 = parseInt(process.env.DURATION_MULTIPLIER_3X_DAYS || '30');
+    const day2 = parseInt(process.env.DURATION_MULTIPLIER_2X_DAYS || '15');
+    const day1_5 = parseInt(process.env.DURATION_MULTIPLIER_1_5X_DAYS || '7');
+
+    if (daysHeld >= day5) return 5;
+    if (daysHeld >= day4) return 4;
+    if (daysHeld >= day3) return 3;
+    if (daysHeld >= day2) return 2;
+    if (daysHeld >= day1_5) return 1.5;
     return 1;
   }
 

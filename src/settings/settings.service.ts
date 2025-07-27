@@ -63,12 +63,15 @@ export class SettingsService {
     const daysElapsed =
       (now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
 
-    if (daysElapsed >= 14) {
+    const bootstrappingDuration = parseInt(
+      process.env.BOOTSTRAPPING_DURATION || '14',
+    );
+    if (daysElapsed >= bootstrappingDuration) {
       return 1; // Fully decayed
     }
 
-    // Linear decay from 5 to 1 over 14 days
-    const decayRate = (5 - 1) / 14; // 4/14 = 0.286 per day
+    // Linear decay from 5 to 1 over configured days
+    const decayRate = (5 - 1) / bootstrappingDuration; // 4/duration per day
     const multiplier = 5 - daysElapsed * decayRate;
 
     return Math.max(1, multiplier);
@@ -91,12 +94,13 @@ export class SettingsService {
     const daysElapsed =
       (now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
 
-    if (daysElapsed >= 28) {
+    const earlySznDuration = parseInt(process.env.EARLY_SZN_DURATION || '28');
+    if (daysElapsed >= earlySznDuration) {
       return 1; // Fully decayed
     }
 
-    // Linear decay from 5 to 1 over 28 days
-    const decayRate = (5 - 1) / 28; // 4/28 = 0.143 per day
+    // Linear decay from 5 to 1 over configured days
+    const decayRate = (5 - 1) / earlySznDuration; // 4/duration per day
     const multiplier = 5 - daysElapsed * decayRate;
 
     return Math.max(1, multiplier);
@@ -119,12 +123,13 @@ export class SettingsService {
     const daysElapsed =
       (now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
 
-    if (daysElapsed >= 14) {
+    const memeSznDuration = parseInt(process.env.MEME_SZN_DURATION || '14');
+    if (daysElapsed >= memeSznDuration) {
       return 1; // Fully decayed
     }
 
-    // Linear decay from 5 to 1 over 14 days
-    const decayRate = (5 - 1) / 14; // 4/14 = 0.286 per day
+    // Linear decay from 5 to 1 over configured days
+    const decayRate = (5 - 1) / memeSznDuration; // 4/duration per day
     const multiplier = 5 - daysElapsed * decayRate;
 
     return Math.max(1, multiplier);

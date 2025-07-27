@@ -11,7 +11,8 @@ import { LiquidityService } from 'src/liquidity/liquidity.service';
 import { SwapTransaction } from './entities/swap-transaction.entity';
 import { TransactionType } from '../liquidity/entities/liquidity-transaction.entity';
 
-const SQUID_URL = 'https://squid.subsquid.io/reef-swap/graphql';
+const SQUID_URL =
+  process.env.SQUID_URL || 'https://squid.subsquid.io/reef-swap/graphql';
 
 enum PoolEventType {
   SWAP = 'Swap',
@@ -70,12 +71,6 @@ export class EventsService {
     await this.fetchAndProcessEvents();
   }
 
-  // Test method for historical data processing
-  async testWithHistoricalData() {
-    this.logger.log('Starting historical data test...');
-    await this.fetchAndProcessHistoricalEvents();
-  }
-
   // Call this on startup or before processing events
   private async refreshTokenPrices() {
     this.pools = await this.priceService.fetchAllPools();
@@ -100,7 +95,7 @@ export class EventsService {
     const lastProcessedBlock = await this.getLastProcessedBlock();
     const query = `
       query {
-        poolEvents(where: { blockHeight_gt: ${lastProcessedBlock}, type_in: [Swap, Mint, Burn] }, orderBy: blockHeight_ASC, limit: 50) {
+        poolEvents(where: { blockHeight_gt: ${lastProcessedBlock}, type_in: [Swap, Mint, Burn] }, orderBy: blockHeight_ASC, limit: ${parseInt(process.env.GRAPHQL_QUERY_LIMIT || '50')}) {
           id
           blockHeight
           toAddress
@@ -192,137 +187,16 @@ export class EventsService {
         await this.markEventAsProcessed(event.id, event.blockHeight);
 
         // Add a delay to avoid hitting API rate limits
-        await new Promise((resolve) => setTimeout(resolve, 250));
+        await new Promise((resolve) =>
+          setTimeout(
+            resolve,
+            parseInt(process.env.EVENT_PROCESSING_DELAY || '250'),
+          ),
+        );
       }
     } catch (error) {
       this.logger.error('Failed to fetch or process events', error.stack);
     }
-  }
-
-  private async fetchAndProcessHistoricalEvents() {
-    await this.ensureTokenPricesFresh();
-
-    // Define historical block range with known liquidity events
-    const startBlock = 12000000; // Start from block 12M
-    const endBlock = 13000000; // End at block 13M
-    const batchSize = 100; // Process in batches
-
-    this.logger.log(
-      `Processing historical events from block ${startBlock} to ${endBlock}`,
-    );
-
-    for (
-      let currentBlock = startBlock;
-      currentBlock <= endBlock;
-      currentBlock += batchSize
-    ) {
-      const batchEndBlock = Math.min(currentBlock + batchSize - 1, endBlock);
-
-      const query = `
-        query {
-          poolEvents(where: { 
-            blockHeight_gte: ${currentBlock}, 
-            blockHeight_lte: ${batchEndBlock}, 
-            type_in: [Swap, Mint, Burn] 
-          }, orderBy: blockHeight_ASC, limit: 50) {
-            id
-            blockHeight
-            toAddress
-            senderAddress
-            signerAddress
-            type
-            amount1
-            amount2
-            pool {
-              token1 { id }
-              token2 { id }
-            }
-          }
-        }
-      `;
-
-      try {
-        const response = await firstValueFrom(
-          this.httpService.post(SQUID_URL, { query }),
-        );
-
-        if (
-          !response.data ||
-          !response.data.data ||
-          !response.data.data.poolEvents
-        ) {
-          this.logger.debug(
-            `No events found in block range ${currentBlock}-${batchEndBlock}`,
-          );
-          continue;
-        }
-
-        const events: PoolEvent[] = response.data.data.poolEvents;
-
-        if (events.length === 0) {
-          this.logger.debug(
-            `No events found in block range ${currentBlock}-${batchEndBlock}`,
-          );
-          continue;
-        }
-
-        this.logger.log(
-          `Found ${events.length} historical events in block range ${currentBlock}-${batchEndBlock}`,
-        );
-
-        for (const event of events) {
-          const isProcessed = await this.isEventProcessed(event.id);
-          if (isProcessed) {
-            this.logger.debug(`Event ${event.id} already processed, skipping`);
-            continue;
-          }
-
-          // Ineligible token filter (centralized)
-          if (
-            isIneligibleToken(event.pool.token1.id) ||
-            isIneligibleToken(event.pool.token2.id)
-          ) {
-            this.logger.warn(
-              `[fetchAndProcessHistoricalEvents] Skipping event ${event.id} due to ineligible token: ${event.pool.token1.id} or ${event.pool.token2.id}`,
-            );
-            await this.markEventAsProcessed(event.id, event.blockHeight);
-            continue;
-          }
-
-          switch (event.type) {
-            case PoolEventType.SWAP:
-              await this.processSwapEvent(event);
-              break;
-            case PoolEventType.MINT:
-              await this.processMintEvent(event);
-              break;
-            case PoolEventType.BURN:
-              await this.processBurnEvent(event);
-              break;
-          }
-          await this.markEventAsProcessed(event.id, event.blockHeight);
-
-          // Add a delay to avoid hitting API rate limits
-          await new Promise((resolve) => setTimeout(resolve, 250));
-        }
-
-        this.logger.log(
-          `Completed processing block range ${currentBlock}-${batchEndBlock}`,
-        );
-
-        // Add delay between batches
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-      } catch (error) {
-        this.logger.error(
-          `Failed to fetch or process historical events for block range ${currentBlock}-${batchEndBlock}`,
-          error.stack,
-        );
-        // Continue with next batch even if current fails
-        continue;
-      }
-    }
-
-    this.logger.log('Historical data processing completed!');
   }
 
   private getPoolAddressFromEvent(event: PoolEvent): string {
@@ -378,7 +252,7 @@ export class EventsService {
       event.pool.token2.id,
     );
     // Store the swap event in the SwapTransaction table
-    const SAFE_MAX = 1e12; // $1 trillion cap for sanity
+    const SAFE_MAX = parseInt(process.env.SAFE_MAX_VALUE || '1e12'); // $1 trillion cap for sanity
     const safeValueUSD = Math.min(swapVolumeUSD, SAFE_MAX);
     const swapTx = this.swapTransactionRepository.create({
       userAddress: event.toAddress,
@@ -498,7 +372,7 @@ export class EventsService {
       return;
     }
     const valueUSD = amount1 * price1 + amount2 * price2;
-    const SAFE_MAX = 1e12;
+    const SAFE_MAX = parseInt(process.env.SAFE_MAX_VALUE || '1e12');
     const safeValueUSD = Math.min(valueUSD, SAFE_MAX);
     const poolAddress = this.getPoolAddressFromEvent(event);
     // Ensure pool config exists and is up to date

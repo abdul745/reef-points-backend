@@ -6,9 +6,10 @@ export enum PoolType {
   VOLATILE_STABLE = 'volatile_stable', // REEF/USDC
 }
 
-// Hardcoded stablecoin mapping
+// Stablecoin mapping from environment
 const STABLECOINS: Record<string, boolean> = {
-  '0x7922d8785d93e692bb584e659b607fa821e6a91a': true, // USDC
+  [process.env.USDC_TOKEN_ADDRESS ||
+  '0x7922d8785d93e692bb584e659b607fa821e6a91a']: true, // USDC
 };
 
 function isStablecoin(address: string): boolean {

@@ -3,8 +3,11 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 
-const REEF_ADDRESS = '0x0000000000000000000000000000000001000000';
-const SQUID_URL = 'https://squid.subsquid.io/reef-swap/graphql';
+const REEF_ADDRESS =
+  process.env.REEF_TOKEN_ADDRESS ||
+  '0x0000000000000000000000000000000001000000';
+const SQUID_URL =
+  process.env.SQUID_URL || 'https://squid.subsquid.io/reef-swap/graphql';
 
 /**
  * CLIENT USAGE PATTERN:
@@ -75,11 +78,15 @@ export class PriceService {
     try {
       this.logger.debug(`[getReefPriceUSD] Fetching REEF price from ReefScan`);
       const response = await this.httpService.axiosRef.get(
-        'https://api.reefscan.com/price/reef',
+        process.env.REEFSCAN_API_URL || 'https://api.reefscan.com/price/reef',
       );
       const price = response.data.usd;
       this.logger.debug(`[getReefPriceUSD] Fetched REEF price: $${price}`);
-      await this.cacheManager.set(cacheKey, price, 1800); // cache for 30 min
+      await this.cacheManager.set(
+        cacheKey,
+        price,
+        parseInt(process.env.REEF_PRICE_CACHE_TTL || '1800'),
+      ); // cache for 30 min
       return price;
     } catch (error) {
       this.logger.error(
@@ -138,7 +145,11 @@ export class PriceService {
       }
       const pools = response.data.data.allPools || [];
       this.logger.debug(`[fetchAllPools] Found ${pools.length} pools`);
-      await this.cacheManager.set(cacheKey, pools, 300); // cache for 5 min
+      await this.cacheManager.set(
+        cacheKey,
+        pools,
+        parseInt(process.env.POOLS_CACHE_TTL || '300'),
+      ); // cache for 5 min
       return pools;
     } catch (error) {
       this.logger.error(
@@ -198,8 +209,8 @@ export class PriceService {
       }
     }
     // Robust price calculation: use only the best pool per token with sufficient liquidity
-    const MIN_REEF_RESERVE = 100; // Minimum REEF in pool
-    const MIN_TOKEN_RESERVE = 100; // Minimum token in pool
+    const MIN_REEF_RESERVE = parseInt(process.env.MIN_REEF_RESERVE || '100'); // Minimum REEF in pool
+    const MIN_TOKEN_RESERVE = parseInt(process.env.MIN_TOKEN_RESERVE || '100'); // Minimum token in pool
     const MIN_USD_PRICE = 0.0000001; // Ignore prices below this
     // Find all pools with REEF and sufficient reserves
     const reefPools = pools.filter(
@@ -251,8 +262,5 @@ export class PriceService {
         );
       }
     }
-//     this.logger.debug(
-//       `[calculateTokenPricesFromPools] Final tokenPrices: ${JSON.stringify(tokenPrices)}`,
-//     );
   }
 }

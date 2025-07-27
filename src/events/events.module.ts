@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PointsModule } from 'src/points/points.module';
 import { EventsService } from './events.service';
-import { EventsController } from './events.controller';
 import { ProcessedEvent } from './entities/processed-event.entity';
 import { PricesModule } from 'src/prices/prices.module';
 import { LiquidityModule } from '../liquidity/liquidity.module';
@@ -22,6 +21,5 @@ import { AuthModule } from '../auth/auth.module';
     AuthModule,
   ],
   providers: [EventsService],
-  controllers: [EventsController],
 })
 export class EventsModule {}
