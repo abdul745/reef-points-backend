@@ -101,7 +101,7 @@ describe('updatePoints', () => {
     };
 
     pointsRepository.create.mockReturnValue(mockUser);
-    pointsRepository.save.mockResolvedValue(mockUser);
+    pointsRepository.save.mockRe solvedValue(mockUser);
 
     await service.updatePoints('0x123', 100);
 

@@ -10,6 +10,7 @@ import { PointsModule } from './points/points.module';
 import { ReferralsModule } from './referrals/referrals.module';
 import { SettingsModule } from './settings/settings.module';
 import { LiquidityModule } from './liquidity/liquidity.module';
+import { CampaignsModule } from './campaigns/campaigns.module';
 import { PricesModule } from './prices/prices.module';
 import { UsersModule } from './users/users.module';
 import { AdminModule } from './admin/admin.module';
@@ -43,6 +44,7 @@ import { AdminModule } from './admin/admin.module';
     ReferralsModule,
     SettingsModule,
     LiquidityModule,
+    CampaignsModule,
     PricesModule,
     UsersModule,
     AdminModule,

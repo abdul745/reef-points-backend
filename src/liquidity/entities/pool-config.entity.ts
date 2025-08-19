@@ -1,4 +1,5 @@
 import { Entity, Column, PrimaryColumn } from 'typeorm';
+import { CONFIG } from '../../config/constants';
 
 export enum PoolType {
   STABLE_STABLE = 'stable_stable', // USDC/USDT
@@ -8,8 +9,7 @@ export enum PoolType {
 
 // Stablecoin mapping from environment
 const STABLECOINS: Record<string, boolean> = {
-  [process.env.USDC_TOKEN_ADDRESS ||
-  '0x7922d8785d93e692bb584e659b607fa821e6a91a']: true, // USDC
+  [CONFIG.USDC_TOKEN_ADDRESS]: true, // USDC
 };
 
 function isStablecoin(address: string): boolean {
@@ -36,6 +36,15 @@ export class PoolConfig {
 
   @Column({ type: 'boolean', default: true })
   isActive: boolean;
+
+  @Column({ type: 'boolean', default: false })
+  bootstrappingEligible: boolean;
+
+  @Column({ type: 'boolean', default: false })
+  earlySznEligible: boolean;
+
+  @Column({ type: 'boolean', default: false })
+  memeSznEligible: boolean;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;

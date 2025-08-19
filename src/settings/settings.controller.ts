@@ -48,7 +48,7 @@ export class SettingsController {
         earlySzn: earlySznMultiplier,
         memeSzn: memeSznMultiplier,
         combined: combinedMultiplier,
-      },
+      },  
     };
   }
 
@@ -65,7 +65,7 @@ export class SettingsController {
       case 'earlySzn':
         updateData.isEarlySzn = true;
         break;
-      case 'memeSzn':
+      case 'memeSzn': 
         updateData.isMemeSzn = true;
         break;
     }

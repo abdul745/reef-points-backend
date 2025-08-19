@@ -10,9 +10,9 @@ import { PriceService } from 'src/prices/prices.service';
 import { LiquidityService } from 'src/liquidity/liquidity.service';
 import { SwapTransaction } from './entities/swap-transaction.entity';
 import { TransactionType } from '../liquidity/entities/liquidity-transaction.entity';
+import { CONFIG } from '../config/constants';
 
-const SQUID_URL =
-  process.env.SQUID_URL || 'https://squid.subsquid.io/reef-swap/graphql';
+const SQUID_URL = CONFIG.SQUID_URL;
 
 enum PoolEventType {
   SWAP = 'Swap',
@@ -95,7 +95,7 @@ export class EventsService {
     const lastProcessedBlock = await this.getLastProcessedBlock();
     const query = `
       query {
-        poolEvents(where: { blockHeight_gt: ${lastProcessedBlock}, type_in: [Swap, Mint, Burn] }, orderBy: blockHeight_ASC, limit: ${parseInt(process.env.GRAPHQL_QUERY_LIMIT || '50')}) {
+        poolEvents(where: { blockHeight_gt: ${lastProcessedBlock}, type_in: [Swap, Mint, Burn] }, orderBy: blockHeight_ASC, limit: ${CONFIG.GRAPHQL_QUERY_LIMIT}) {
           id
           blockHeight
           toAddress
@@ -188,10 +188,7 @@ export class EventsService {
 
         // Add a delay to avoid hitting API rate limits
         await new Promise((resolve) =>
-          setTimeout(
-            resolve,
-            parseInt(process.env.EVENT_PROCESSING_DELAY || '250'),
-          ),
+          setTimeout(resolve, CONFIG.EVENT_PROCESSING_DELAY),
         );
       }
     } catch (error) {
@@ -252,7 +249,7 @@ export class EventsService {
       event.pool.token2.id,
     );
     // Store the swap event in the SwapTransaction table
-    const SAFE_MAX = parseInt(process.env.SAFE_MAX_VALUE || '1e12'); // $1 trillion cap for sanity
+    const SAFE_MAX = CONFIG.SAFE_MAX_VALUE; // $1 trillion cap for sanity
     const safeValueUSD = Math.min(swapVolumeUSD, SAFE_MAX);
     const swapTx = this.swapTransactionRepository.create({
       userAddress: event.toAddress,
@@ -289,16 +286,6 @@ export class EventsService {
       `[LIQUIDITY] Processing Mint event for user: ${userAddress}`,
     );
 
-    await this.liquidityService.updateUserLiquidity(
-      userAddress,
-      event.pool.token1.id,
-      BigInt(event.amount1),
-    );
-    await this.liquidityService.updateUserLiquidity(
-      userAddress,
-      event.pool.token2.id,
-      BigInt(event.amount2),
-    );
     // Record the Mint transaction with pool and token info
     const amount1 = parseFloat(event.amount1) / 1e18;
     const amount2 = parseFloat(event.amount2) / 1e18;
@@ -344,16 +331,7 @@ export class EventsService {
       );
       return;
     }
-    await this.liquidityService.updateUserLiquidity(
-      event.toAddress,
-      event.pool.token1.id,
-      -BigInt(event.amount1),
-    );
-    await this.liquidityService.updateUserLiquidity(
-      event.toAddress,
-      event.pool.token2.id,
-      -BigInt(event.amount2),
-    );
+
     // Record the Burn transaction with pool and token info
     const amount1 = parseFloat(event.amount1) / 1e18;
     const amount2 = parseFloat(event.amount2) / 1e18;
@@ -372,7 +350,7 @@ export class EventsService {
       return;
     }
     const valueUSD = amount1 * price1 + amount2 * price2;
-    const SAFE_MAX = parseInt(process.env.SAFE_MAX_VALUE || '1e12');
+    const SAFE_MAX = CONFIG.SAFE_MAX_VALUE;
     const safeValueUSD = Math.min(valueUSD, SAFE_MAX);
     const poolAddress = this.getPoolAddressFromEvent(event);
     // Ensure pool config exists and is up to date

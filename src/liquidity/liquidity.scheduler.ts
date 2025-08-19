@@ -22,6 +22,7 @@ export class LiquidityScheduler {
    * Daily job to calculate liquidity points.
    * Runs at 00:01 every day to calculate balances and points for the PREVIOUS day.
    */
+// todo: 
   // @Cron('0 1 * * *') // At 00:01 every day
   @Cron('*/2 * * * *') // Every 2 minutes
   async handleDailyLiquidityTasks() {
@@ -32,6 +33,7 @@ export class LiquidityScheduler {
     this.isProcessing = true;
 
     try {
+// todo remove systemNow
       const systemNow = new Date();
       this.logger.log(
         `[DEBUG] System now: ${systemNow.toISOString()} | ${systemNow.toLocaleString()}`,

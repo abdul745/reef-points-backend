@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Settings } from './entities/settings.entity';
+import { CONFIG } from '../config/constants';
 
 @Injectable()
 export class SettingsService {
@@ -50,32 +51,67 @@ export class SettingsService {
    * Calculate time-based decay multiplier for bootstrapping campaign
    * Starts at 5x and decays to 1x over 14 days
    */
-  calculateBootstrappingMultiplier(
-    settings: Settings,
-    processingDate?: Date,
-  ): number {
-    if (!settings.isBootstrapping || !settings.bootstrappingStartDate) {
-      return 1;
-    }
+//   calculateBootstrappingMultiplier(
+//     settings: Settings,
+//     processingDate?: Date,
+//   ): number {
+//     if (!settings.isBootstrapping || !settings.bootstrappingStartDate) {
+//       return 1;
+//     }
 
-    const now = processingDate || new Date();
-    const startDate = new Date(settings.bootstrappingStartDate);
-    const daysElapsed =
-      (now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
+//     const now = processingDate || new Date();
+//     const startDate = new Date(settings.bootstrappingStartDate);
+//     const daysElapsed =
+//       (now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
+// console.log("calculating bootstrap multiplier - daysElapsed", daysElapsed)
+//     const bootstrappingDuration = CONFIG.BOOTSTRAPPING_DURATION;
+//     if (daysElapsed >= bootstrappingDuration) {
+//       return 1; // Fully decayed
+//     }
 
-    const bootstrappingDuration = parseInt(
-      process.env.BOOTSTRAPPING_DURATION || '14',
-    );
-    if (daysElapsed >= bootstrappingDuration) {
-      return 1; // Fully decayed
-    }
+//     // Linear decay from 5 to 1 over configured days
+//     const decayRate = (5 - 1) / bootstrappingDuration; // 4/duration per day
+//     const multiplier = 5 - daysElapsed * decayRate;
+// console.log("multiplier for bootstrap is", multiplier)
+//     return Math.max(1, multiplier);
+//   }
 
-    // Linear decay from 5 to 1 over configured days
-    const decayRate = (5 - 1) / bootstrappingDuration; // 4/duration per day
-    const multiplier = 5 - daysElapsed * decayRate;
-
-    return Math.max(1, multiplier);
+calculateBootstrappingMultiplier(
+  settings: Settings,
+  processingDate?: Date,
+): number {
+  if (!settings.isBootstrapping || !settings.bootstrappingStartDate) {
+    return 1;
   }
+
+const getStartOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+const now = getStartOfDay(processingDate || new Date());
+const startDate = getStartOfDay(new Date(settings.bootstrappingStartDate));
+
+console.log("now", now);
+console.log("startDate", startDate);
+
+const daysElapsed = (now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
+
+
+  console.log("calculating bootstrap multiplier - daysElapsed", daysElapsed);
+
+  const bootstrappingDuration = CONFIG.BOOTSTRAPPING_DURATION;
+  if (daysElapsed >= bootstrappingDuration) {
+    return 1;
+  }
+
+  const decayRate = (5 - 1) / bootstrappingDuration;
+  const multiplier = 5 - daysElapsed * decayRate;
+
+  console.log("multiplier for bootstrap is", multiplier);
+
+  return Math.max(1, multiplier);
+}
+
+
+
 
   /**
    * Calculate time-based decay multiplier for early season campaign
@@ -94,7 +130,7 @@ export class SettingsService {
     const daysElapsed =
       (now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
 
-    const earlySznDuration = parseInt(process.env.EARLY_SZN_DURATION || '28');
+    const earlySznDuration = CONFIG.EARLY_SZN_DURATION;
     if (daysElapsed >= earlySznDuration) {
       return 1; // Fully decayed
     }
@@ -123,7 +159,7 @@ export class SettingsService {
     const daysElapsed =
       (now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
 
-    const memeSznDuration = parseInt(process.env.MEME_SZN_DURATION || '14');
+    const memeSznDuration = CONFIG.MEME_SZN_DURATION;
     if (daysElapsed >= memeSznDuration) {
       return 1; // Fully decayed
     }

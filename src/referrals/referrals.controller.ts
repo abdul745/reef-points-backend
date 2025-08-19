@@ -1,4 +1,4 @@
-import { Controller, Post, Body } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param } from '@nestjs/common';
 import { ReferralsService } from './referrals.service';
 
 class CreateReferralDto {
@@ -25,6 +25,8 @@ export class ReferralsController {
     return { success: true, referral };
   }
 
+
+// todo remove unused EPs - its being used in frontend right after the connect wallet api call
   @Post('use-code')
   async useReferralCode(@Body() useReferralCodeDto: UseReferralCodeDto) {
     const { referralCode, userAddress } = useReferralCodeDto;
@@ -33,5 +35,11 @@ export class ReferralsController {
       userAddress.toLowerCase(),
     );
     return { success: true, referral };
+  }
+
+  @Get('user-referral-info/:userAddress')
+  async getUserReferralInfo(@Param('userAddress') userAddress: string) {
+console.log("Received userAddress:", userAddress);
+    return this.referralsService.getUserReferralInfo(userAddress);
   }
 }

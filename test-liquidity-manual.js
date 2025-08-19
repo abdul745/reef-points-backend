@@ -59,10 +59,7 @@ async function testLiquidityPointsFlow() {
 
     // Step 1: Clean up any existing test data
     console.log('🧹 Step 1: Cleaning up existing test data...');
-    await pool.query(
-      'DELETE FROM liquidity_balance WHERE "userAddress" = ANY($1)',
-      [testUsers],
-    );
+    await pool.query('DELETE FROM  WHERE "userAddress" = ANY($1)', [testUsers]);
     await pool.query('DELETE FROM pool_config WHERE "poolAddress" = ANY($1)', [
       testPools.map((p) => p.address),
     ]);
@@ -108,7 +105,7 @@ async function testLiquidityPointsFlow() {
     // User 1: $100 in REEF/USDC pool only
     await pool.query(
       `
-      INSERT INTO liquidity_balance ("userAddress", "poolAddress", "token0Address", "token1Address", "amount0", "amount1", "valueUSD", "date", "createdAt", "updatedAt")
+      INSERT INTO  ("userAddress", "poolAddress", "token0Address", "token1Address", "amount0", "amount1", "valueUSD", "date", "createdAt", "updatedAt")
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
     `,
       [
@@ -127,7 +124,7 @@ async function testLiquidityPointsFlow() {
     // User 2: $200 in REEF/USDC + $150 in REEF/MRD (multiple pools)
     await pool.query(
       `
-      INSERT INTO liquidity_balance ("userAddress", "poolAddress", "token0Address", "token1Address", "amount0", "amount1", "valueUSD", "date", "createdAt", "updatedAt")
+      INSERT INTO  ("userAddress", "poolAddress", "token0Address", "token1Address", "amount0", "amount1", "valueUSD", "date", "createdAt", "updatedAt")
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
     `,
       [
@@ -144,7 +141,7 @@ async function testLiquidityPointsFlow() {
 
     await pool.query(
       `
-      INSERT INTO liquidity_balance ("userAddress", "poolAddress", "token0Address", "token1Address", "amount0", "amount1", "valueUSD", "date", "createdAt", "updatedAt")
+      INSERT INTO  ("userAddress", "poolAddress", "token0Address", "token1Address", "amount0", "amount1", "valueUSD", "date", "createdAt", "updatedAt")
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
     `,
       [
@@ -165,7 +162,7 @@ async function testLiquidityPointsFlow() {
     // User 3: $300 in USDC/USDT + $100 in REEF/USDC (with referral setup)
     await pool.query(
       `
-      INSERT INTO liquidity_balance ("userAddress", "poolAddress", "token0Address", "token1Address", "amount0", "amount1", "valueUSD", "date", "createdAt", "updatedAt")
+      INSERT INTO  ("userAddress", "poolAddress", "token0Address", "token1Address", "amount0", "amount1", "valueUSD", "date", "createdAt", "updatedAt")
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
     `,
       [
@@ -182,7 +179,7 @@ async function testLiquidityPointsFlow() {
 
     await pool.query(
       `
-      INSERT INTO liquidity_balance ("userAddress", "poolAddress", "token0Address", "token1Address", "amount0", "amount1", "valueUSD", "date", "createdAt", "updatedAt")
+      INSERT INTO  ("userAddress", "poolAddress", "token0Address", "token1Address", "amount0", "amount1", "valueUSD", "date", "createdAt", "updatedAt")
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
     `,
       [
@@ -278,7 +275,7 @@ async function testLiquidityPointsFlow() {
     const balances = await pool.query(
       `
       SELECT "userAddress", "poolAddress", "valueUSD", "date" 
-      FROM liquidity_balance 
+      FROM  
       WHERE "userAddress" = ANY($1) AND "date" = $2
       ORDER BY "userAddress", "poolAddress"
     `,
@@ -347,7 +344,7 @@ async function testLiquidityPointsFlow() {
       const userBalances = await pool.query(
         `
         SELECT lb.*, pc."poolType"
-        FROM liquidity_balance lb
+        FROM  lb
         JOIN pool_config pc ON lb."poolAddress" = pc."poolAddress"
         WHERE lb."userAddress" = $1 AND lb."date" = $2 AND lb."valueUSD" > 0
       `,
@@ -459,10 +456,7 @@ async function testLiquidityPointsFlow() {
 
     // Step 10: Clean up
     console.log('🧹 Step 10: Cleaning up test data...');
-    await pool.query(
-      'DELETE FROM liquidity_balance WHERE "userAddress" = ANY($1)',
-      [testUsers],
-    );
+    await pool.query('DELETE FROM  WHERE "userAddress" = ANY($1)', [testUsers]);
     await pool.query('DELETE FROM pool_config WHERE "poolAddress" = ANY($1)', [
       testPools.map((p) => p.address),
     ]);

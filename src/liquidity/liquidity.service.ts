@@ -17,7 +17,8 @@ import { PoolConfig, PoolType } from './entities/pool-config.entity';
 import { PriceService } from '../prices/prices.service';
 import { SettingsService } from '../settings/settings.service';
 import { Settings } from '../settings/entities/settings.entity';
-import { UserLiquidity } from './entities/user-liquidity.entity';
+
+import { CONFIG } from '../config/constants';
 
 @Injectable()
 export class LiquidityService {
@@ -32,8 +33,7 @@ export class LiquidityService {
     private readonly poolConfigRepository: Repository<PoolConfig>,
     @InjectRepository(LiquidityTransaction)
     private readonly liquidityTransactionRepository: Repository<LiquidityTransaction>,
-    @InjectRepository(UserLiquidity)
-    private readonly userLiquidityRepository: Repository<UserLiquidity>,
+
     private readonly priceService: PriceService,
     private readonly settingsService: SettingsService,
   ) {}
@@ -86,7 +86,7 @@ export class LiquidityService {
     const endOfDay = new Date(date);
     endOfDay.setHours(23, 59, 59, 999);
 
-    // Get all transactions for the user for the given day
+    // Get all transactions for the user for the given day - yesterday (for testing today's)
     const transactions = await this.liquidityTransactionRepository
       .createQueryBuilder('lt')
       .where('lt.userAddress = :userAddress', { userAddress })
@@ -98,7 +98,7 @@ export class LiquidityService {
       `[calculateAndSaveDailyBalances] Transactions for ${userAddress} on ${date.toLocaleDateString()}: ${JSON.stringify(transactions)}`,
     );
 
-    // Get all pools the user had a balance in yesterday or had a transaction in today
+    // Get all pools the user had a balance in yesterday or had a transaction in today (day before yesterday's blncs)
     const previousBalances = await this.liquidityBalanceRepository
       .createQueryBuilder('lb')
       .where('lb.userAddress = :userAddress', { userAddress })
@@ -119,9 +119,9 @@ export class LiquidityService {
     );
 
     for (const poolAddress of relevantPools) {
-      const previousBalance =
-        previousBalances.find((b) => b.poolAddress === poolAddress)?.valueUSD ||
-        0;
+// Fixed  the issue of lowest balance being used on the next day
+//       const previousBalance = previousBalances.find((b) => b.poolAddress === poolAddress)?.valueUSD || 0;
+      const previousBalance = previousBalances.find((b) => b.poolAddress === poolAddress)?.finalBalance || 0;
       const poolTransactions = transactions.filter(
         (t) => t.poolAddress === poolAddress,
       );
@@ -154,9 +154,7 @@ export class LiquidityService {
       );
 
       // Only save balances that are above minimum threshold
-      const minThreshold = parseFloat(
-        process.env.MIN_LIQUIDITY_THRESHOLD || '1',
-      );
+      const minThreshold = CONFIG.MIN_LIQUIDITY_THRESHOLD;
       if (finalLowestBalance >= minThreshold) {
         // Determine streakStartDate
         let streakStartDate: Date = date;
@@ -203,79 +201,6 @@ export class LiquidityService {
   }
 
   /**
-   * Calculate daily liquidity points for a user based on the pre-calculated lowest balances.
-   */
-  async calculateDailyLiquidityPoints(
-    userAddress: string,
-    date: Date,
-  ): Promise<number> {
-    const settings = await this.settingsService.getSettings();
-    if (!settings) {
-      this.logger.warn(
-        'Global settings not found. Aborting points calculation.',
-      );
-      return 0;
-    }
-
-    // The balances in this table now represent the LOWEST balance for the day
-    // Only consider balances above minimum threshold
-    const minThreshold = parseFloat(process.env.MIN_LIQUIDITY_THRESHOLD || '1');
-    const lowestBalances = await this.liquidityBalanceRepository.find({
-      where: { userAddress, date, valueUSD: MoreThan(minThreshold) },
-    });
-
-    if (lowestBalances.length === 0) {
-      this.logger.log(
-        `[LiquidityPoints] No balances above $${minThreshold} threshold for user ${userAddress} on ${date.toISOString().split('T')[0]}`,
-      );
-      return 0;
-    }
-
-    const campaignMultiplier = this.getCampaignMultiplier(settings);
-    const liquidityMultiplier = Math.min(lowestBalances.length, 4);
-
-    console.log(
-      `[LiquidityPoints] Campaign multiplier: ${campaignMultiplier}, Liquidity multiplier: ${liquidityMultiplier}`,
-    );
-
-    let totalPoints = 0;
-    for (const balance of lowestBalances) {
-      const poolConfig = await this.poolConfigRepository.findOne({
-        where: { poolAddress: balance.poolAddress },
-      });
-      if (!poolConfig || !poolConfig.isActive) continue;
-
-      const basePointsPerDay = this.getBasePointsPerDay(poolConfig.poolType);
-      const basePoints = balance.valueUSD * basePointsPerDay;
-
-      // Use streakStartDate for duration multiplier
-      const streakStartDate = balance.streakStartDate || balance.date;
-
-      const daysHeld = Math.floor(
-        (date.getTime() - new Date(streakStartDate).getTime()) /
-          (1000 * 60 * 60 * 24),
-      );
-      const durationMultiplier = this.getDurationMultiplierFromStreak(
-        new Date(streakStartDate),
-        date,
-      );
-
-      const poolPoints =
-        basePoints *
-        campaignMultiplier *
-        liquidityMultiplier *
-        durationMultiplier;
-      totalPoints += poolPoints;
-
-      console.log(
-        `[LiquidityPoints] Pool: ${balance.poolAddress}, Type: ${poolConfig.poolType}, Balance: $${balance.valueUSD}, Base: ${basePoints}, streakStartDate: ${streakStartDate}, daysHeld: ${daysHeld}, Duration: ${durationMultiplier}x, Total: ${poolPoints}`,
-      );
-    }
-
-    return totalPoints;
-  }
-
-  /**
    * Calculate duration multiplier based on how long user has held liquidity
    */
   public getDurationMultiplierFromStreak(
@@ -286,11 +211,11 @@ export class LiquidityService {
     const daysHeld = Math.floor(
       (date.getTime() - streakStartDate.getTime()) / (1000 * 60 * 60 * 24),
     );
-    const day5 = parseInt(process.env.DURATION_MULTIPLIER_5X_DAYS || '90');
-    const day4 = parseInt(process.env.DURATION_MULTIPLIER_4X_DAYS || '60');
-    const day3 = parseInt(process.env.DURATION_MULTIPLIER_3X_DAYS || '30');
-    const day2 = parseInt(process.env.DURATION_MULTIPLIER_2X_DAYS || '15');
-    const day1_5 = parseInt(process.env.DURATION_MULTIPLIER_1_5X_DAYS || '7');
+    const day5 = CONFIG.DURATION_MULTIPLIER_5X_DAYS;
+    const day4 = CONFIG.DURATION_MULTIPLIER_4X_DAYS;
+    const day3 = CONFIG.DURATION_MULTIPLIER_3X_DAYS;
+    const day2 = CONFIG.DURATION_MULTIPLIER_2X_DAYS;
+    const day1_5 = CONFIG.DURATION_MULTIPLIER_1_5X_DAYS;
 
     if (daysHeld >= day5) return 5;
     if (daysHeld >= day4) return 4;
@@ -303,14 +228,34 @@ export class LiquidityService {
   /**
    * Gets the combined campaign multiplier from global settings.
    * Implements the client's time-based decay requirements.
+   * Now supports per-pool campaign eligibility.
    */
-  private getCampaignMultiplier(settings: Settings): number {
-    return this.settingsService.getCombinedCampaignMultiplier(settings);
+  private getCampaignMultiplier(
+    settings: Settings,
+    poolConfig: PoolConfig,
+  ): number {
+    let multiplier = 1;
+
+    if (poolConfig.bootstrappingEligible && settings.isBootstrapping) {
+      multiplier *=
+        this.settingsService.calculateBootstrappingMultiplier(settings);
+    }
+
+    if (poolConfig.earlySznEligible && settings.isEarlySzn) {
+      multiplier *= this.settingsService.calculateEarlySznMultiplier(settings);
+    }
+
+    if (poolConfig.memeSznEligible && settings.isMemeSzn) {
+      multiplier *= this.settingsService.calculateMemeSznMultiplier(settings);
+    }
+
+    return multiplier;
   }
 
   /**
    * Get base points per day per dollar based on pool type
    */
+// todo: remove if not used
   private getBasePointsPerDay(poolType: PoolType): number {
     switch (poolType) {
       case PoolType.STABLE_STABLE:
@@ -367,7 +312,7 @@ export class LiquidityService {
       where: { poolAddress },
     });
 
-    if (!poolConfig) {
+    if (!poolConfig) {   
       // Automatically detect pool type using CoinGecko
       const poolType = await PoolConfig.detectPoolType(
         token0Address,
@@ -422,43 +367,102 @@ export class LiquidityService {
 
     return uniqueUsers;
   }
+  
+  // Admin methods for campaign management
+  async getAllPools() {
+    return this.poolConfigRepository.find({
+      order: { createdAt: 'DESC' },
+    });
+  }
 
-  async updateUserLiquidity(
-    userAddress: string,
-    tokenAddress: string,
-    amountChange: bigint,
-  ): Promise<void> {
-    const normalizedUser = userAddress.toLowerCase();
-    const normalizedToken = tokenAddress.toLowerCase();
-
-    let userLiquidity = await this.userLiquidityRepository.findOne({
-      where: { userAddress: normalizedUser, tokenAddress: normalizedToken },
+  async updatePoolCampaignEligibility(
+    poolAddress: string,
+    eligibility: {
+      bootstrappingEligible?: boolean;
+      earlySznEligible?: boolean;
+      memeSznEligible?: boolean;
+    },
+  ) {
+    const poolConfig = await this.poolConfigRepository.findOne({
+      where: { poolAddress },
     });
 
-    if (!userLiquidity) {
-      userLiquidity = this.userLiquidityRepository.create({
-        userAddress: normalizedUser,
-        tokenAddress: normalizedToken,
-        balance: amountChange.toString(),
-      });
+    if (!poolConfig) {
+      throw new Error(`Pool ${poolAddress} not found`);
     }
 
-    const currentBalance = BigInt(userLiquidity.balance || '0');
-    this.logger.log(
-      `[LiquidityService] BEFORE: ${normalizedUser} in ${normalizedToken} - Current balance: ${currentBalance}, Amount change: ${amountChange}`,
-    );
-    let newBalance = currentBalance + amountChange;
+    Object.assign(poolConfig, eligibility);
+    return this.poolConfigRepository.save(poolConfig);
+  }
 
-    if (newBalance < 0n) {
-      this.logger.warn(
-        `[LiquidityService] Burn event caused negative balance for ${normalizedUser} in ${normalizedToken}. Setting to 0.`,
-      );
-      newBalance = 0n;
+  async updateBulkCampaignEligibility(
+    updates: Array<{
+      poolAddress: string;
+      bootstrappingEligible?: boolean;
+      earlySznEligible?: boolean;
+      memeSznEligible?: boolean;
+    }>,
+  ) {
+    const results: Array<{
+      success: boolean;
+      poolAddress: string;
+      data?: any;
+      error?: string;
+    }> = [];
+
+    for (const update of updates) {
+      try {
+        const result = await this.updatePoolCampaignEligibility(
+          update.poolAddress,
+          update,
+        );
+        results.push({
+          success: true,     
+          poolAddress: update.poolAddress,
+          data: result,
+        });
+      } catch (error) {
+        results.push({
+          success: false,
+          poolAddress: update.poolAddress,
+          error: error.message,
+        });
+      }
     }
-    userLiquidity.balance = newBalance.toString();
-    await this.userLiquidityRepository.save(userLiquidity);
-    this.logger.log(
-      `[LiquidityService] AFTER: ${normalizedUser} in ${normalizedToken} - New balance: ${newBalance}`,
-    );
+    return results;
+  }
+
+  async getEligiblePools() {
+    const pools = await this.poolConfigRepository.find();
+
+    return {
+      bootstrapping: pools.filter((p) => p.bootstrappingEligible),
+      earlySzn: pools.filter((p) => p.earlySznEligible),
+      memeSzn: pools.filter((p) => p.memeSznEligible),
+      total: pools.length,
+    };
+  }
+
+  async getCampaignAnalytics() {
+    const pools = await this.poolConfigRepository.find();
+
+    return {
+      totalPools: pools.length,
+      activePools: pools.filter((p) => p.isActive).length,
+      campaignEligibility: {
+        bootstrapping: pools.filter((p) => p.bootstrappingEligible).length,
+        earlySzn: pools.filter((p) => p.earlySznEligible).length,
+        memeSzn: pools.filter((p) => p.memeSznEligible).length,
+      },
+      poolTypes: {
+        stableStable: pools.filter((p) => p.poolType === 'stable_stable')
+          .length,
+        volatileVolatile: pools.filter(
+          (p) => p.poolType === 'volatile_volatile',
+        ).length,
+        volatileStable: pools.filter((p) => p.poolType === 'volatile_stable')
+          .length,
+      },
+    };
   }
 }
