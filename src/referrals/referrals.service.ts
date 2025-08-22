@@ -103,7 +103,7 @@ const referees = await this.referralRepository
 
     // 4. Get points for each referee using direct query
 
-// ToDo: confirm from client
+// ToDo: confirm from client - confirmed - should be based on liquidity balance
 
 // Current Approach (Points):
 // Use this if your application tracks user activity (liquidity + swaps) and rewards users based on their overall contribution.

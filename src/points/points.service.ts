@@ -36,87 +36,104 @@ export class PointsService {
 
   // Remove updateLiquidityPoints and calculateLiquidityPoints methods and any private helpers only used by them
 
-//   private async applyReferralBonuses(
-//     userAddress: string,
-//     points: number,
-//   ): Promise<void> {
-//     // Find the user and their referral relationship
-// console.log("inside the applyReferralBonuses");
-//     const user = await this.userRepository.findOne({
-//       where: { address: userAddress },
-//       relations: ['referredBy', 'referredBy.referrer'],
-//     });
+  //   private async applyReferralBonuses(
+  //     userAddress: string,
+  //     points: number,
+  //   ): Promise<void> {
+  //     // Find the user and their referral relationship
+  // console.log("inside the applyReferralBonuses");
+  //     const user = await this.userRepository.findOne({
+  //       where: { address: userAddress },
+  //       relations: ['referredBy', 'referredBy.referrer'],
+  //     });
 
-// console.log("user found in applyReferralBonuses", user);
+  // console.log("user found in applyReferralBonuses", user);
 
-//     if (user && user.referredBy && user.referredBy.referrer) {
-//       const referrer = user.referredBy.referrer;
-//       const referrerBonus = points * (CONFIG.REFERRER_BONUS_PERCENTAGE / 100);
-//       const refereeBonus = points * (CONFIG.REFERRAL_BONUS_PERCENTAGE / 100);
-//       // Award 10% to referrer
-//       await this.updateReferralPoints(referrer.address, referrerBonus);
-//       // Award 5% to referee (the user themselves)
-//       await this.updateReferralPoints(userAddress, refereeBonus);
-//       console.log(
-//         `[ReferralBonus] Awarded ${referrerBonus} to referrer (${referrer.address}), ${refereeBonus} to referee (${userAddress})`,
-//       );  
-//     }
-//   }
+  //     if (user && user.referredBy && user.referredBy.referrer) {
+  //       const referrer = user.referredBy.referrer;
+  //       const referrerBonus = points * (CONFIG.REFERRER_BONUS_PERCENTAGE / 100);
+  //       const refereeBonus = points * (CONFIG.REFERRAL_BONUS_PERCENTAGE / 100);
+  //       // Award 10% to referrer
+  //       await this.updateReferralPoints(referrer.address, referrerBonus);
+  //       // Award 5% to referee (the user themselves)
+  //       await this.updateReferralPoints(userAddress, refereeBonus);
+  //       console.log(
+  //         `[ReferralBonus] Awarded ${referrerBonus} to referrer (${referrer.address}), ${refereeBonus} to referee (${userAddress})`,
+  //       );
+  //     }
+  //   }
 
-private async applyReferralBonuses(
-  userAddress: string,
-  points: number,
-): Promise<void> {
-  console.log("inside the applyReferralBonuses");
-  console.log(`Processing referral bonuses for userAddress: ${userAddress}, points: ${points}`);
+  private async applyReferralBonuses(
+    userAddress: string,
+    points: number,
+  ): Promise<void> {
+    console.log('inside the applyReferralBonuses');
+    console.log(
+      `Processing referral bonuses for userAddress: ${userAddress}, points: ${points}`,
+    );
 
-  // Find the user and their referral relationship
-const user = await this.userRepository.findOne({
-  where: { address: userAddress.toLowerCase() },
-  relations: ['referredBy', 'referredBy.referrer'],
-});
+    // Find the user and their referral relationship
+    const user = await this.userRepository.findOne({
+      where: { address: userAddress.toLowerCase() },
+      relations: ['referredBy', 'referredBy.referrer'],
+    });
 
-  console.log("User fetched from database:", user);
+    console.log('User fetched from database:', user);
 
-  if (!user) {
-    console.warn(`[ReferralBonus] No user found with address: ${userAddress}`);
-    return;
-  }
+    if (!user) {
+      console.warn(
+        `[ReferralBonus] No user found with address: ${userAddress}`,
+      );
+      return;
+    }
 
-  if (!user.referredBy) {
-    console.warn(`[ReferralBonus] No referral relationship found for user: ${userAddress}`);
-    return;
-  }
+    if (!user.referredBy) {
+      console.warn(
+        `[ReferralBonus] No referral relationship found for user: ${userAddress}`,
+      );
+      return;
+    }
 
-  if (!user.referredBy.referrer) {
-    console.warn(`[ReferralBonus] No referrer found for user: ${userAddress}`);
-    return;
-  }
+    if (!user.referredBy.referrer) {
+      console.warn(
+        `[ReferralBonus] No referrer found for user: ${userAddress}`,
+      );
+      return;
+    }
 
-  const referrer = user.referredBy.referrer;
-  console.log("Referrer details:", referrer);
+    const referrer = user.referredBy.referrer;
+    console.log('Referrer details:', referrer);
 
-  const referrerBonus = points * (CONFIG.REFERRER_BONUS_PERCENTAGE / 100);
-  const refereeBonus = points * (CONFIG.REFERRAL_BONUS_PERCENTAGE / 100);
-
-  console.log(`Calculated bonuses - Referrer Bonus: ${referrerBonus}, Referee Bonus: ${refereeBonus}`);
-
-  try {
-    // Award 10% to referrer
-    console.log(`Awarding ${referrerBonus} points to referrer (${referrer.address})`);
-    await this.updateReferralPoints(referrer.address, referrerBonus);
-
-    // Award 5% to referee (the user themselves)
-    console.log(`Awarding ${refereeBonus} points to referee (${userAddress})`);
-    await this.updateReferralPoints(userAddress, refereeBonus);
+    const referrerBonus = points * (CONFIG.REFERRER_BONUS_PERCENTAGE / 100);
+    const refereeBonus = points * (CONFIG.REFERRAL_BONUS_PERCENTAGE / 100);
 
     console.log(
-      `[ReferralBonus] Successfully awarded ${referrerBonus} to referrer (${referrer.address}), ${refereeBonus} to referee (${userAddress})`,
+      `Calculated bonuses - Referrer Bonus: ${referrerBonus}, Referee Bonus: ${refereeBonus}`,
     );
-  } catch (error) {
-    console.error(`[ReferralBonus] Error while awarding referral bonuses:`, error);
+
+    try {
+      // Award 10% to referrer
+      console.log(
+        `Awarding ${referrerBonus} points to referrer (${referrer.address})`,
+      );
+      await this.updateReferralPoints(referrer.address, referrerBonus);
+
+      // Award 5% to referee (the user themselves)
+      console.log(
+        `Awarding ${refereeBonus} points to referee (${userAddress})`,
+      );
+      await this.updateReferralPoints(userAddress, refereeBonus);
+
+      console.log(
+        `[ReferralBonus] Successfully awarded ${referrerBonus} to referrer (${referrer.address}), ${refereeBonus} to referee (${userAddress})`,
+      );
+    } catch (error) {
+      console.error(
+        `[ReferralBonus] Error while awarding referral bonuses:`,
+        error,
+      );
+    }
   }
-}
 
   private async updateReferralPoints(
     userAddress: string,
@@ -127,22 +144,22 @@ const user = await this.userRepository.findOne({
     });
 
     if (user) {
-      user.referralPoints += points;     
-      await this.pointsRepository.save(user); 
+      user.referralPoints += points;
+      await this.pointsRepository.save(user);
     } else {
-//       const newUser = this.pointsRepository.create({
-//         userAddress,
-//         referralPoints: points,
-//       });
-    const newUser = this.pointsRepository.create({
-      userAddress,
-      poolAddress: 'REFERRAL',
-      referralPoints: points,
-      date: new Date(),
-      liquidityPoints: 0,
-      swapPoints: 0,
-      poolType: 'REFERRAL',
-    });
+      //       const newUser = this.pointsRepository.create({
+      //         userAddress,
+      //         referralPoints: points,
+      //       });
+      const newUser = this.pointsRepository.create({
+        userAddress,
+        poolAddress: 'REFERRAL',
+        referralPoints: points,
+        date: new Date(),
+        liquidityPoints: 0,
+        swapPoints: 0,
+        poolType: 'REFERRAL',
+      });
       await this.pointsRepository.save(newUser);
     }
   }
@@ -155,24 +172,24 @@ const user = await this.userRepository.findOne({
     poolConfig: PoolConfig,
   ): number {
     let multiplier = 1;
-console.log("poolConfig received in getCampaignMultiplier", poolConfig)
+    console.log('poolConfig received in getCampaignMultiplier', poolConfig);
     if (poolConfig.bootstrappingEligible && settings.isBootstrapping) {
       multiplier *=
         this.settingsService.calculateBootstrappingMultiplier(settings);
     }
-console.log("multiplier after bootsrap", multiplier);
+    console.log('multiplier after bootsrap', multiplier);
 
     if (poolConfig.earlySznEligible && settings.isEarlySzn) {
       multiplier *= this.settingsService.calculateEarlySznMultiplier(settings);
     }
 
-console.log("multiplier after earlySznEligible", multiplier);
+    console.log('multiplier after earlySznEligible', multiplier);
 
     if (poolConfig.memeSznEligible && settings.isMemeSzn) {
       multiplier *= this.settingsService.calculateMemeSznMultiplier(settings);
     }
 
-console.log("multiplier after memeSznEligible", multiplier);
+    console.log('multiplier after memeSznEligible', multiplier);
 
     return multiplier;
   }
@@ -243,6 +260,17 @@ console.log("multiplier after memeSznEligible", multiplier);
       const campaignMultiplier = this.getCampaignMultiplier(
         settings,
         poolConfig,
+      );
+
+      console.log(
+        `[LiquidityPoints Calc] pool=${balance.poolAddress} valueUSD=${balance.valueUSD} ` +
+          `typeMultiplier=${multiplier} durationMultiplier=${durationMultiplier} ` +
+          `campaignMultiplier=${campaignMultiplier} product=${
+            balance.valueUSD *
+            multiplier *
+            durationMultiplier *
+            campaignMultiplier
+          }`,
       );
 
       const points =
