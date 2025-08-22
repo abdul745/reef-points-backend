@@ -1,23 +1,31 @@
-# Use Node.js 18 Alpine for smaller image size
-FROM node:18-alpine
+# ---- Build stage ----
+FROM node:18-alpine AS build
 
-# Set working directory
 WORKDIR /app
 
-# Copy package files
+# Install all dependencies (including dev) to be able to build
 COPY package*.json ./
+RUN npm ci
 
-# Install dependencies
-RUN npm ci --only=production
-
-# Copy source code
+# Copy source and build
 COPY . .
-
-# Build the application
 RUN npm run build
 
-# Expose port
+# ---- Runtime stage ----
+FROM node:18-alpine AS runtime
+
+WORKDIR /app
+ENV NODE_ENV=production
+
+# Install only production deps
+COPY package*.json ./
+RUN npm ci --only=production
+
+# Copy built artifacts from build stage
+COPY --from=build /app/dist ./dist
+COPY --from=build /app/env.example ./env.example
+
+# Expose API port
 EXPOSE 3004
 
-# Start the application
-CMD ["npm", "run", "start:prod"] 
+CMD ["npm", "run", "start:prod"]
