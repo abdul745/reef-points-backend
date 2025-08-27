@@ -3,7 +3,8 @@ FROM node:18-alpine AS build
 
 WORKDIR /app
 
-# Install all dependencies (including dev) to be able to build
+# Make sure devDependencies are installed for build
+ENV NODE_ENV=development
 COPY package*.json ./
 RUN npm ci
 
@@ -17,7 +18,7 @@ FROM node:18-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 
-# Install only production deps
+# Install only production deps for slim image
 COPY package*.json ./
 RUN npm ci --only=production
 
@@ -25,7 +26,5 @@ RUN npm ci --only=production
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/env.example ./env.example
 
-# Expose API port
 EXPOSE 3004
-
 CMD ["npm", "run", "start:prod"]
